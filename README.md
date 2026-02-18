@@ -137,7 +137,7 @@ The entire system is self-contained on Polkadot's native infrastructure. No exte
 
 ### Step 1: Clone the Repository
 ```bash
-git clone https://github.com/your-org/polkapulse.git
+git clone https://github.com/Teewa56/polkapulse.git
 cd polkapulse
 ```
 
