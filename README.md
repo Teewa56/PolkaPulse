@@ -112,7 +112,7 @@ The entire system is self-contained on Polkadot's native infrastructure. No exte
 ---
 
 ## Tech Stack
-
+```
 **Smart Contracts:** Solidity (^0.8.20) + PVM-compatible ink! Rust modules
 **PVM Integration:** Polkadot Virtual Machine with Rust standard library calls for yield math
 **Cross-Chain Messaging:** XCM v5 (dispatched via XCM Precompile on Asset Hub)
@@ -124,7 +124,7 @@ The entire system is self-contained on Polkadot's native infrastructure. No exte
 **DeFi Integrations:** HydraDX SDK (liquidity pools), Interlay SDK (vault collateral)
 **Coretime:** Polkadot Coretime Chain API for Bulk Coretime NFT purchase and assignment
 **Version Control:** Git + GitHub
-
+```
 ---
 
 ## Local Setup Guide
