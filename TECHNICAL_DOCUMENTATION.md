@@ -123,7 +123,7 @@ Each of these parachain integrations relies entirely on XCM v5 — no bridging i
 
 | Layer | Technology |
 |---|---|
-| Smart Contracts | Solidity ^0.8.20 + ink! Rust (PVM) |
+| Smart Contracts | Solidity ^0.8.20 + Rust (PVM) |
 | Execution VM | Polkadot Virtual Machine (PVM) |
 | Cross-Chain Messaging | XCM v5 |
 | Precompiles | Staking (0x800), XCM (0x808), Assets |
