@@ -24,7 +24,7 @@ polkapulse/
 │       ├── IStakingPrecompile.sol
 │       ├── IXCMPrecompile.sol
 │       └── IAssetsPrecompile.sol
-├── pvm-modules/                 # Rust/ink! PVM modules
+├── pvm-modules/                 # Rust PVM modules
 │   ├── src/
 │   │   ├── yield_optimizer.rs   # APY comparison & strategy selection logic
 │   │   └── math_lib.rs          # Rust-native financial math (compound calc)
