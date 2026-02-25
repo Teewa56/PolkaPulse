@@ -35,10 +35,10 @@ polkapulse/
 ├── scripts/
 │   └── simulate-yield-loop.ts  # Local Chopsticks XCM fork simulation
 ├── test/
-│   ├── PolkaPulseCore.test.ts   # Hardhat test suite
+│   ├── PolkaPulseCore.test.ts   
 │   └── CoretimeArbitrage.test.ts
 ├── frontend/
-│   ├── app/                     # Next.js 14 app directory
+│   ├── app/                     # Next.js app directory
 │   ├── components/              # UI components (deposit, ppDOT balance, yield stats)
 │   └── wagmi.config.ts          # wagmi + RainbowKit wallet config
 ├── .env.example
