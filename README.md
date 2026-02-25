@@ -57,7 +57,7 @@ Depositors interact with a single entry point — they deposit DOT, receive ppDO
 
 ### Technical Approach
 
-The technical stack centers on three novel integration points. First, PVM smart contracts written in an ink!-compatible Rust-Solidity hybrid that call native Rust mathematical libraries for yield optimization calculations — computations that would be prohibitively expensive on the EVM but are highly efficient on PVM. Second, XCM v5 program construction within smart contract logic, allowing the protocol to compose and dispatch cross-chain instruction sets autonomously without human input. Third, precompile integration that exposes Substrate pallet functionality (staking, assets, XCM dispatch) as callable Solidity interfaces, bridging the EVM mental model with the Substrate execution model.
+The technical stack centers on three novel integration points. First, PVM smart contracts written in a Rust-Solidity hybrid that call native Rust mathematical libraries for yield optimization calculations — computations that would be prohibitively expensive on the EVM but are highly efficient on PVM. Second, XCM v5 program construction within smart contract logic, allowing the protocol to compose and dispatch cross-chain instruction sets autonomously without human input. Third, precompile integration that exposes Substrate pallet functionality (staking, assets, XCM dispatch) as callable Solidity interfaces, bridging the EVM mental model with the Substrate execution model.
 
 ---
 
@@ -113,12 +113,12 @@ The entire system is self-contained on Polkadot's native infrastructure. No exte
 
 ## Tech Stack
 ```
-**Smart Contracts:** Solidity (^0.8.20) + PVM-compatible ink! Rust modules
+**Smart Contracts:** Solidity (^0.8.20) + PVM-compatible Rust modules
 **PVM Integration:** Polkadot Virtual Machine with Rust standard library calls for yield math
 **Cross-Chain Messaging:** XCM v5 (dispatched via XCM Precompile on Asset Hub)
 **Precompiles Used:** Staking Precompile (0x0000...0800), XCM Precompile (0x0000...0808), Assets Precompile
-**Development Framework:** Hardhat (EVM contracts) + cargo-contract (PVM/ink! modules)
-**Testing:** Hardhat test suite, Rust unit tests via `cargo test`, Chopsticks for XCM fork testing
+**Development Framework:** Hardhat (EVM contracts) + cargo-contract (PVM rust modules)
+**Testing:** Hardhat test suite, Rust unit and fuzz tests via `cargo test`, Chopsticks for XCM fork testing
 **Token Standard:** ERC-20 rebasing token (ppDOT) for depositor receipts
 **Frontend:** Next.js 14, TailwindCSS, wagmi + RainbowKit for EVM wallet connection
 **DeFi Integrations:** HydraDX SDK (liquidity pools), Interlay SDK (vault collateral)
