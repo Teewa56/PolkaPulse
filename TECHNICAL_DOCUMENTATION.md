@@ -174,7 +174,7 @@ npx hardhat run scripts/simulate-yield-loop.ts --network localhost
 
 ## 9. Implementation Notes
 
-The Rust yield optimizer must receive APY data as calldata — it does not make external calls itself. Any on-chain APY feed mechanism (or off-chain keeper passing current rates) must be implemented before the optimizer can make live decisions. The XCM `BuyExecution` weight limit in the AtomicYieldExecutor should be benchmarked against actual Asset Hub and HydraDX block weights before mainnet deployment to avoid failed executions. The ppDOT rebasing mechanism is not compatible out of the box with protocols that snapshot ERC-20 balances at a fixed block — integrations with governance tools or lending protocols will need to account for the dynamic balance model.
+The Rust yield optimizer must receive APY data as calldata — it does not make external calls itself. Any on-chain APY feed mechanism (or off-chain keeper passing current rates) must be implemented before the optimizer can make live decisions. The XCM `BuyExecution` weight limit in the AtomicYieldExecutor will be benchmarked against actual Asset Hub and HydraDX block weights before mainnet deployment to avoid failed executions. The ppDOT rebasing mechanism is not compatible out of the box with protocols that snapshot ERC-20 balances at a fixed block — integrations with governance tools or lending protocols will account for the dynamic balance model.
 
 ---
 
@@ -184,4 +184,4 @@ The Rust yield optimizer must receive APY data as calldata — it does not make 
 
 **Sovereign account management:** Each parachain interaction is mediated through PolkaPulse's XCM sovereign account on the destination chain. Ensure sufficient DOT is always maintained in these sovereign accounts to cover `BuyExecution` fees, or implement an auto-top-up mechanism as part of the yield loop.
 
-**Hackathon scope vs. production:** For the MVP, XCM dispatch and Coretime purchases may be simulated via Chopsticks forks rather than executed on live testnets. The rebasing math and contract interfaces are production-grade; the cross-chain execution paths should be treated as integration targets pending full XCM v5 testnet availability.
+**Hackathon scope vs. production:** For the MVP, XCM dispatch and Coretime purchases are simulated via Chopsticks forks rather than executed on live testnets. The rebasing math and contract interfaces are production-grade; the cross-chain execution paths should be treated as integration targets pending full XCM v5 testnet availability.
