@@ -11,38 +11,122 @@ The protocol introduces four core mechanisms: a hub-centric contract brain on As
 ---
 
 ## 2. Folder Structure
-
 ```
 polkapulse/
-├── contracts/                  # Solidity smart contracts (PVM-compatible)
-│   ├── PolkaPulseCore.sol       # Main entry point, deposit/withdraw logic
-│   ├── ppDOT.sol                # Rebasing ERC-20 receipt token
-│   ├── RewardMonitor.sol        # Staking reward polling via Staking Precompile
-│   ├── AtomicYieldExecutor.sol  # XCM v5 instruction set builder & dispatcher
-│   ├── CoretimeArbitrage.sol    # Bulk Coretime NFT purchase & assignment logic
-│   └── interfaces/
-│       ├── IStakingPrecompile.sol
-│       ├── IXCMPrecompile.sol
-│       └── IAssetsPrecompile.sol
-├── pvm-modules/                 # Rust PVM modules
+│
+├── smart-contracts/
+│   ├── contracts/
+│   │   ├── PolkaPulseCore.sol
+│   │   ├── ppDOT.sol
+│   │   ├── RewardMonitor.sol
+│   │   ├── AtomicYieldExecutor.sol
+│   │   ├── CoretimeArbitrage.sol
+│   │   └── interfaces/
+│   │       ├── IStakingPrecompile.sol
+│   │       ├── IXCMPrecompile.sol
+│   │       └── IAssetsPrecompile.sol
+│   ├── ignition/
+│   │   └── modules/
+│   │       └── PolkaPulse.ts
+│   ├── scripts/
+│   │   └── simulate-yield-loop.ts
+│   ├── test/
+│   │   ├── PolkaPulseCore.test.ts
+│   │   └── CoretimeArbitrage.test.ts
+│   ├── hardhat.config.ts
+│   └── .env.example
+│
+├── pvm-modules/
 │   ├── src/
-│   │   ├── yield_optimizer.rs   # APY comparison & strategy selection logic
-│   │   └── math_lib.rs          # Rust-native financial math (compound calc)
+│   │   ├── yield_optimizer.rs
+│   │   └── math_lib.rs
 │   └── Cargo.toml
-├── ignition/
-│   └── modules/
-│       └── PolkaPulse.ts        # Hardhat Ignition deployment module
-├── scripts/
-│   └── simulate-yield-loop.ts  # Local Chopsticks XCM fork simulation
-├── test/
-│   ├── PolkaPulseCore.test.ts   
-│   └── CoretimeArbitrage.test.ts
+│
 ├── frontend/
-│   ├── app/                     # Next.js app directory
-│   ├── components/              # UI components (deposit, ppDOT balance, yield stats)
-│   └── wagmi.config.ts          # wagmi + RainbowKit wallet config
+│   ├── public/
+│   │   ├── favicon.ico
+│   │   └── logo.svg
+│   │
+│   ├── app/
+│   │   ├── layout.tsx                  # Root layout (fonts, metadata, providers)
+│   │   ├── page.tsx                    # Landing / home page
+│   │   ├── globals.css                 # Global TailwindCSS styles
+│   │   │
+│   │   ├── dashboard/
+│   │   │   └── page.tsx                # Main user dashboard (deposit, withdraw, stats)
+│   │   │
+│   │   ├── vault/
+│   │   │   └── page.tsx                # ppDOT vault detail view
+│   │   │
+│   │   └── coretime/
+│   │       └── page.tsx                # Coretime arbitrage status & partner parachains
+│   │
+│   ├── components/
+│   │   ├── layout/
+│   │   │   ├── Navbar.tsx              # Top navigation bar with wallet connect
+│   │   │   ├── Sidebar.tsx             # Dashboard sidebar navigation
+│   │   │   └── Footer.tsx
+│   │   │
+│   │   ├── dashboard/
+│   │   │   ├── DepositCard.tsx         # DOT deposit input + ppDOT preview
+│   │   │   ├── WithdrawCard.tsx        # ppDOT burn + DOT redemption
+│   │   │   ├── YieldStats.tsx          # Live APY, total yield earned, position value
+│   │   │   ├── PositionSummary.tsx     # User's ppDOT balance and DOT equivalent
+│   │   │   └── AllocationChart.tsx     # HydraDX vs Interlay split visualization
+│   │   │
+│   │   ├── vault/
+│   │   │   ├── ppDOTRate.tsx           # Live ppDOT/DOT exchange rate display
+│   │   │   ├── YieldHistory.tsx        # Historical yield harvest events
+│   │   │   └── RebaseTracker.tsx       # Rebase events log
+│   │   │
+│   │   ├── coretime/
+│   │   │   ├── CoretimeStatus.tsx      # Current Bulk Coretime holdings
+│   │   │   ├── PartnerParachains.tsx   # Partner list with boosted yield rates
+│   │   │   └── EpochCountdown.tsx      # Time until next Coretime purchase epoch
+│   │   │
+│   │   └── ui/
+│   │       ├── Button.tsx
+│   │       ├── Card.tsx
+│   │       ├── Input.tsx
+│   │       ├── Badge.tsx
+│   │       ├── Spinner.tsx
+│   │       ├── Modal.tsx
+│   │       └── Tooltip.tsx
+│   │
+│   ├── hooks/
+│   │   ├── useDeposit.ts               # Deposit tx logic via wagmi
+│   │   ├── useWithdraw.ts              # Withdraw tx logic
+│   │   ├── useppDOTBalance.ts          # Read user's ppDOT balance
+│   │   ├── useYieldStats.ts            # Fetch live APY and harvest data
+│   │   ├── useExchangeRate.ts          # ppDOT/DOT exchange rate reader
+│   │   └── useCoretimeData.ts          # Coretime holdings and epoch data
+│   │
+│   ├── lib/
+│   │   ├── wagmi.config.ts             # wagmi + RainbowKit chain config
+│   │   ├── contracts.ts                # Contract addresses and ABIs
+│   │   ├── polkadot.ts                 # Polkadot.js API instance setup
+│   │   └── utils.ts                    # Formatting helpers (DOT, BPS, dates)
+│   │
+│   ├── providers/
+│   │   ├── WalletProvider.tsx          # RainbowKit + wagmi context wrapper
+│   │   └── QueryProvider.tsx           # TanStack Query provider
+│   │
+│   ├── types/
+│   │   ├── contracts.ts                # TypeChain-generated or manual ABI types
+│   │   └── protocol.ts                 # Shared protocol types (YieldStats, Position, etc.)
+│   │
+│   ├── constants/
+│   │   └── index.ts                    # Chain IDs, precompile addresses, token decimals
+│   │
+│   ├── .env.example
+│   ├── next.config.ts
+│   ├── tailwind.config.ts
+│   ├── tsconfig.json
+│   └── package.json
+│
 ├── .env.example
-├── hardhat.config.ts
+├── .gitignore
+├── package.json
 └── README.md
 ```
 
