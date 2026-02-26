@@ -259,7 +259,7 @@ npx hardhat compile
 
 # 7. Run all tests
 cd ../pvm-modules
-cargo test --manifest-path ../pvm-modules/Cargo.toml
+cargo test
 cd ../smart-contracts
 npx hardhat test
 
