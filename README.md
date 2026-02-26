@@ -135,65 +135,9 @@ The entire system is self-contained on Polkadot's native infrastructure. No exte
 - cargo-contract installed (`cargo install cargo-contract`)
 - Git installed
 
-### Step 1: Clone the Repository
-```bash
-git clone https://github.com/Teewa56/polkapulse.git
-cd polkapulse
-```
+Check [TECHNICAL_DOCUMENTATION.md](TECHNICAL_DOCUMENTATION.md) for setup information.
 
-### Step 2: Install JavaScript Dependencies
-```bash
-npm install
-```
-
-### Step 3: Build PVM / Rust Modules
-```bash
-cd pvm-modules
-cargo build --release
-cd ..
-```
-
-### Step 4: Configure Environment Variables
-```bash
-cp .env.example .env
-```
-Fill in your `.env`:
-```
-PRIVATE_KEY=your_deployer_private_key
-ASSET_HUB_RPC=https://rpc.assethub-polkadot-testnet.io
-HYDRAX_RPC=https://rpc.hydradx-testnet.io
-INTERLAY_RPC=https://rpc.interlay-testnet.io
-```
-
-### Step 5: Compile Solidity Contracts
-```bash
-npx hardhat compile
-```
-
-### Step 6: Run Tests
-```bash
-npx hardhat test
-cargo test --manifest-path pvm-modules/Cargo.toml
-```
-
-### Step 7: Deploy to Asset Hub Testnet
-```bash
-npx hardhat ignition deploy ./ignition/modules/PolkaPulse.ts --network assetHub
-```
-
-### Step 8: Run the Frontend
-```bash
-cd frontend
-npm install
-npm run dev
-```
-Visit `http://localhost:3000` to interact with PolkaPulse locally.
-
-### Step 9: Simulate an Atomic Yield Loop (Local Fork)
-```bash
-npx hardhat run scripts/simulate-yield-loop.ts --network localhost
-```
-This script forks the Asset Hub testnet using Chopsticks and simulates a full Harvest → Teleport → Deploy XCM cycle locally.
+The script `scripts/simulate-yield-loop.ts` forks the Asset Hub testnet using Chopsticks and simulates a full Harvest → Teleport → Deploy XCM cycle locally.
 
 ---
 

@@ -290,7 +290,7 @@ npx hardhat test
 # so Hardhat deployment scripts work against it with no changes.
 # The Rust precompile addresses are already registered on-chain —
 # only the Solidity contracts need to be deployed here.
-npx hardhat ignition deploy ./ignition/modules/PolkaPulse.ts --network assetHub
+npx hardhat run scripts/deploy.ts --network assetHub
 # Copy the deployed PolkaPulseCore and ppDOT addresses from the output.
 # Paste them into frontend/.env as:
 #   NEXT_PUBLIC_POLKAPULSE_CORE_ADDRESS
