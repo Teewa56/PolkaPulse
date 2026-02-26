@@ -228,32 +228,58 @@ Each of these parachain integrations relies entirely on XCM v5 — no bridging i
 git clone https://github.com/Teewa56/polkapulse.git && cd polkapulse
 
 # 2. Install JS deps
+cd frontend
+npm install
+cd ../smart-contracts
 npm install
 
 # 3. Build Rust/PVM modules
-cd pvm-modules && cargo build --release && cd ..
+cd ../pvm-modules
+cargo build --release
+cargo contract build
+# Produces: ./target/ink/pvm_modules.contract (bytecode + ABI bundle)
+cd ..
 
 # 4. Configure environment
 cp .env.example .env
 # Set: PRIVATE_KEY, ASSET_HUB_RPC, HYDRAX_RPC, INTERLAY_RPC
 
-# 5. Compile Solidity
+# 5. Deploy PVM module to Asset Hub testnet
+cargo contract instantiate \
+  --contract ./pvm-modules/target/ink/pvm_modules.contract \
+  --suri $PRIVATE_KEY \
+  --url $ASSET_HUB_RPC
+# Copy the instantiated contract address from the output.
+# Paste it into smart-contracts/hardhat.config.ts as PVM_MODULE_ADDRESS
+# and into frontend/lib/constants/index.ts as PVM_MODULE_ADDRESS.
+
+# 6. Compile Solidity contracts
+cd ../smart-contracts
 npx hardhat compile
 
-# 6. Run all tests
+# 7. Run all tests
+cd ../pvm-modules
+cargo test --manifest-path ../pvm-modules/Cargo.toml
+cd ../smart-contracts
 npx hardhat test
-cargo test --manifest-path pvm-modules/Cargo.toml
 
-# 7. Deploy to Asset Hub testnet
+# 8. Deploy Solidity contracts to Asset Hub testnet
 npx hardhat ignition deploy ./ignition/modules/PolkaPulse.ts --network assetHub
+cd ../pvm-modules
 
-# 8. Launch frontend
-cd frontend && npm install && npm run dev
+# 9. Launch frontend
+cd ../frontend && npm install && npm run dev
 # → http://localhost:3000
 
-# 9. Simulate atomic yield loop on local fork
+# 10. Simulate atomic yield loop on local fork
+cd ../smart-contracts
 npx hardhat run scripts/simulate-yield-loop.ts --network localhost
 ```
+
+> **Note:** Steps 5 and 8 are order-dependent. The PVM module must be instantiated on Asset Hub **before** the Solidity contracts are deployed, because `AtomicYieldExecutor.sol` takes the PVM module address as a constructor argument. If you redeploy the PVM module for any reason, you must redeploy the Solidity contracts as well and update the address in both `hardhat.config.ts` and `frontend/lib/constants/index.ts`.
+
+# PVM modules deployment
+Deploying the PVM modules to Polkadot is done through `cargo-contract`, the same toolchain used to build ink! smart contracts. Once the modules are compiled with `cargo build --release`, run `cargo contract build` to produce a `.contract` bundle — a file that packages the compiled PVM bytecode together with its ABI metadata and this bundle is what gets deployed on-chain. You then deploy it to the Polkadot Asset Hub testnet using either the `cargo contract instantiate` CLI command pointed at your Asset Hub RPC endpoint, or through the Contracts UI at `contracts.polkadot.io` by uploading the `.contract` file directly. Once instantiated, the deployed PVM module lives at a specific on-chain address, and that address is what you drop into `AtomicYieldExecutor.sol` as the call target — the Solidity contract calls it the same way it would call any other contract, passing in the ABI-encoded `OptimizerInput` as calldata and reading back the ABI-decoded `YieldRecommendation` struct. The key thing to understand is that unlike EVM contracts which are deployed once globally, PVM contracts on Asset Hub are instantiated, meaning the same compiled code can be instantiated multiple times at different addresses, but for PolkaPulse we only need one canonical instance per network, and its address should be stored as a constant in `contracts.ts` on the frontend and hardcoded into the Solidity deployment configuration in `hardhat.config.ts`.
 
 ---
 
