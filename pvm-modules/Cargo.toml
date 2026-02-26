@@ -9,5 +9,7 @@ crate-type = ["cdylib", "rlib"]
 path = "src/lib.rs"
 
 [dependencies]
+cargo-contract = "5.0.3"
+cargo-contracts = "0.0.2"
 
 [dev-dependencies]
