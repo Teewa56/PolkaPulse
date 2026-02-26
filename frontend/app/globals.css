@@ -1,26 +1,68 @@
-@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=IBM+Plex+Mono:wght@300;400;500;600&family=DM+Sans:wght@300;400;500&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg:       #080809;
+  --surface:  #0D0D10;
+  --surface2: #12121A;
+  --border:   #1C1C28;
+  --border2:  #242432;
+  --pink:     #E6007A;
+  --cyan:     #00D4FF;
+  --green:    #00FF88;
+  --amber:    #FFB800;
+  --muted:    #52526A;
+  --text:     #E2E2EE;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+* { box-sizing: border-box; }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
+
+::-webkit-scrollbar       { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+/* Ticker animation */
+@keyframes ticker {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+/* Scanline overlay utility */
+.scanline {
+  background-image: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 3px,
+    rgba(230, 0, 122, 0.015) 3px,
+    rgba(230, 0, 122, 0.015) 4px
+  );
+}
+
+/* Glow animation for the rate card */
+@keyframes rateGlow {
+  0%, 100% { box-shadow: 0 0 20px rgba(230,0,122,0.3); }
+  50%       { box-shadow: 0 0 50px rgba(230,0,122,0.5), 0 0 100px rgba(230,0,122,0.1); }
+}
+.rate-glow { animation: rateGlow 3s ease-in-out infinite; }
+
+/* Blinking colon for countdown */
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+.blink { animation: blink 1s step-end infinite; }
+
+/* Input reset */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
+input[type="number"] { -moz-appearance: textfield; }
+input:focus { outline: none; }
+
+/* RainbowKit override: match our dark theme */
+[data-rk] * { font-family: 'IBM Plex Mono', monospace !important; }
