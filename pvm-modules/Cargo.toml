@@ -2,14 +2,28 @@
 name = "pvm-modules"
 version = "0.1.0"
 edition = "2024"
-description = "PolkaPulse PVM yield optimization and math modules"
+description = "PolkaPulse PVM yield optimization and math modules — pallet-revive precompiles"
 
 [lib]
-crate-type = ["cdylib", "rlib"]
+crate-type = ["rlib"]
 path = "src/lib.rs"
 
 [dependencies]
-cargo-contract = "5.0.3"
-cargo-contracts = "0.0.2"
+sp-core = { git = "https://github.com/paritytech/polkadot-sdk", branch = "stable2409", default-features = false }
+sp-std = { git = "https://github.com/paritytech/polkadot-sdk", branch = "stable2409", default-features = false }
+frame-support = { git = "https://github.com/paritytech/polkadot-sdk", branch = "stable2409", default-features = false }
+pallet-revive = { git = "https://github.com/paritytech/polkadot-sdk", branch = "stable2409", default-features = false }
+ethabi = { version = "18.0.0", default-features = false }
 
 [dev-dependencies]
+hex = "0.4"
+
+[features]
+default = ["std"]
+std = [
+    "sp-core/std",
+    "sp-std/std",
+    "frame-support/std",
+    "pallet-revive/std",
+    "ethabi/full-serde",
+]

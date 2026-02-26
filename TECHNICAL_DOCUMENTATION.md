@@ -37,10 +37,16 @@ polkapulse/
 │   └── .env.example
 │
 ├── pvm-modules/
+│   ├── precompiles/
+│   │   ├── math_lib_precompile.rs
+│   │   └── yield_optimizer_precompile.rs
 │   ├── src/
 │   │   ├── yield_optimizer.rs
 │   │   ├── tests.rs
-│   │   └── math_lib.rs
+│   │   ├── abi.rs
+│   │   ├── math_lib.rs
+│   │   ├── lib.rs
+│   │   └── precompile_set.rs
 │   └── Cargo.toml
 │
 ├── frontend/
@@ -284,7 +290,6 @@ npx hardhat ignition deploy ./ignition/modules/PolkaPulse.ts --network assetHub
 # 10. Launch frontend
 cd ../frontend
 npm run dev
-# → http://localhost:3000
 
 # 11. Simulate atomic yield loop on local fork
 cd ../smart-contracts
@@ -292,7 +297,6 @@ npx hardhat run scripts/simulate-yield-loop.ts --network localhost
 ```
 
 > **Note:** Under `pallet-revive`, the Rust math modules (`math_lib`, `yield_optimizer`) are runtime precompiles — they live at fixed on-chain addresses and do not require a separate deploy or instantiate step. Only the Solidity contracts in `smart-contracts/` need to be deployed. If you are running a local Chopsticks fork for step 11, ensure the fork is based on an Asset Hub snapshot that includes the `pallet-revive` runtime with the PolkaPulse precompiles registered, otherwise precompile calls will revert.
-> **Note:** Steps 5 and 8 are order-dependent. The PVM module must be instantiated on Asset Hub **before** the Solidity contracts are deployed, because `AtomicYieldExecutor.sol` takes the PVM module address as a constructor argument. If you redeploy the PVM module for any reason, you must redeploy the Solidity contracts as well and update the address in both `hardhat.config.ts` and `frontend/lib/constants/index.ts`.
 
 # PVM modules deployment
 Deploying the PVM modules to Polkadot now uses the `pallet-revive` stack, which has replaced `pallet-contracts` and effectively ended active ink! development as the primary smart contract path on Polkadot. Rather than writing ink! contracts and building with `cargo-contract`, the contracts — including the Solidity interfaces that wrap the Rust math logic — are compiled to PVM bytecode using `resolc`, the revive Solidity compiler developed by Parity. We run `resolc` in place of `solc` to produce PVM-compatible bytecode from our Solidity source files, meaning `AtomicYieldExecutor.sol` and the rest of the contract layer are compiled to PVM directly rather than EVM. The Rust math modules in `math_lib.rs` and `yield_optimizer.rs` are surfaced as precompiles registered within the `pallet-revive` runtime, making them callable from Solidity contracts at fixed precompile addresses the same way the Staking and XCM precompiles are called — no separate instantiation step required for the Rust layer. The compiled Solidity-to-PVM bytecode is then deployed to Asset Hub using either the `eth-rpc` compatibility layer that `pallet-revive` exposes (which accepts standard Ethereum deployment transactions, meaning the existing Hardhat deployment scripts work with minimal changes) or directly via the Substrate extrinsic `revive.instantiateWithCode`. Once deployed, the contract address is stored in `hardhat.config.ts` and `frontend/lib/constants/index.ts` exactly as before — from the frontend's perspective, the contract behaves like any EVM contract since `pallet-revive` maintains Ethereum RPC compatibility at the interface level.
