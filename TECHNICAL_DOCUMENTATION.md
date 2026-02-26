@@ -39,6 +39,7 @@ polkapulse/
 ├── pvm-modules/
 │   ├── src/
 │   │   ├── yield_optimizer.rs
+│   │   ├── tests.rs
 │   │   └── math_lib.rs
 │   └── Cargo.toml
 │
