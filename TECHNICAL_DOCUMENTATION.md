@@ -24,13 +24,24 @@ polkapulse/
 │   │   └── interfaces/
 │   │       ├── IStakingPrecompile.sol
 │   │       ├── IXCMPrecompile.sol
+│   │       ├── IPolkaPulseCore.sol
 │   │       └── IAssetsPrecompile.sol
+│   │   └── governance/
+│   │       ├── PolkaPulseTimelock.sol
+│   │       └── PolkaPulseMultisig.sol
+│   │   └── libraries/
+│   │       ├── Events.sol
+│   │       └── Validation.sol
+│   │   └── proxy/
+│   │       └── PolkaPulseProxy.sol
 │   ├── ignition/
 │   │   └── modules/
 │   │       └── PolkaPulse.ts
 │   ├── scripts/
 │   │   └── simulate-yield-loop.ts
 │   ├── test/
+│   │   ├── fuzz/
+│   │       ├── FuzzTest.test.ts
 │   │   ├── PolkaPulseCore.test.ts
 │   │   └── CoretimeArbitrage.test.ts
 │   ├── hardhat.config.ts
