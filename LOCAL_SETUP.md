@@ -1,7 +1,7 @@
 # PolkaPulse — Local Setup Guide
 
 > Full stack: PVM Rust modules → Smart Contracts → Frontend  
-> Target network: Asset Hub (testnet)
+> Target network: Polkadot Asset Hub (testnet) or Westend Asset Hub (testnet)
 
 ---
 
