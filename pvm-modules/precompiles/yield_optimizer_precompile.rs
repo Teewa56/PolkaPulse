@@ -8,10 +8,7 @@
 /// REGISTERED ADDRESS: YIELD_OPTIMIZER_PRECOMPILE_ADDRESS (defined in precompile_set.rs)
 ///
 /// FUNCTION SELECTOR:
-///   optimize(uint128,uint32,uint32,uint32,uint32,uint32,uint32,uint32) → 0x6f7a8b9c
-///
-/// NOTE: Compute the real selector with: cast sig "optimize(uint128,uint32,uint32,uint32,uint32,uint32,uint32,uint32)"
-/// and update SEL_OPTIMIZE and AtomicYieldExecutor.sol to match before deployment.
+///   optimize(uint128,uint32,uint32,uint32,uint32,uint32,uint32,uint32) → 0xefc2eb5f
 ///
 /// ON ERROR:
 /// Returns encode_error(error_code). AtomicYieldExecutor.sol checks the bool flag
@@ -28,7 +25,7 @@ use crate::math_lib::MathError;
 // Function selector
 // ---------------------------------------------------------------------------
 
-const SEL_OPTIMIZE: [u8; 4] = [0x6f, 0x7a, 0x8b, 0x9c]; // optimize(uint128,uint32×7)
+const SEL_OPTIMIZE: [u8; 4] = [0xef, 0xc2, 0xeb, 0x5f];
 
 // ---------------------------------------------------------------------------
 // Error codes (must stay in sync with abi.rs and math_lib_precompile.rs)

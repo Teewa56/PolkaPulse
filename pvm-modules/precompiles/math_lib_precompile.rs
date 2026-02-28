@@ -7,13 +7,11 @@
 /// REGISTERED ADDRESS: MATH_LIB_PRECOMPILE_ADDRESS (defined in precompile_set.rs)
 ///
 /// FUNCTION SELECTORS (keccak256 of signature, first 4 bytes):
-///   compound(uint128,uint32,uint32)           → 0x1a2b3c4d  (placeholder — compute with cast)
-///   annualize(uint32,uint64)                  → 0x2b3c4d5e
-///   feeAdjustedYield(uint128,uint32)          → 0x3c4d5e6f
-///   weightedAverage(uint128[],uint128[])      → 0x4d5e6f7a
-///   optimalSplit(uint32,uint32,uint32,uint32) → 0x5e6f7a8b
-///
-/// NOTE: Replace the placeholder selectors above with actual keccak256 values
+///   compound(uint128,uint32,uint32)           → 0x056cfa39
+///   annualize(uint32,uint64)                  → 0x338db165
+///   feeAdjustedYield(uint128,uint32)          → 0xb2761be5
+///   weightedAverage(uint128[],uint128[])      → 0xc268dc58
+///   optimalSplit(uint32,uint32,uint32,uint32) → 0x2a138a61
 ///
 /// DISPATCH MODEL:
 /// The `call` function reads the first 4 bytes of input as the selector, routes
@@ -31,14 +29,12 @@ use crate::abi::encode_error;
 // ---------------------------------------------------------------------------
 // Function selectors
 // ---------------------------------------------------------------------------
-// These must match exactly what resolc generates for the Solidity call sites
-// in AtomicYieldExecutor.sol. Compute with: cast sig "fnName(types)"
 
-const SEL_COMPOUND: [u8; 4]            = [0x1a, 0x2b, 0x3c, 0x4d]; // compound(uint128,uint32,uint32)
-const SEL_ANNUALIZE: [u8; 4]           = [0x2b, 0x3c, 0x4d, 0x5e]; // annualize(uint32,uint64)
-const SEL_FEE_ADJUSTED: [u8; 4]        = [0x3c, 0x4d, 0x5e, 0x6f]; // feeAdjustedYield(uint128,uint32)
-const SEL_WEIGHTED_AVG: [u8; 4]        = [0x4d, 0x5e, 0x6f, 0x7a]; // weightedAverage(uint128[],uint128[])
-const SEL_OPTIMAL_SPLIT: [u8; 4]       = [0x5e, 0x6f, 0x7a, 0x8b]; // optimalSplit(uint32,uint32,uint32,uint32)
+const SEL_COMPOUND: [u8; 4]            = [0x05, 0x6c, 0xfa, 0x39];
+const SEL_ANNUALIZE: [u8; 4]           = [0x33, 0x8d, 0xb1, 0x65];
+const SEL_FEE_ADJUSTED: [u8; 4]        = [0xb2, 0x76, 0x1b, 0xe5];
+const SEL_WEIGHTED_AVG: [u8; 4]        = [0xc2, 0x68, 0xdc, 0x58];
+const SEL_OPTIMAL_SPLIT: [u8; 4]       = [0x2a, 0x13, 0x8a, 0x61];
 
 // ---------------------------------------------------------------------------
 // Error codes (must stay in sync with abi.rs and AtomicYieldExecutor.sol)

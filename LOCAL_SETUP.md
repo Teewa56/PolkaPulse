@@ -47,45 +47,17 @@ polkapulse/
 
 ### Step 1.1 — Compute Function Selectors
 
-Before building Rust, you must replace all `SEL_*` placeholder constants with real 4-byte ABI selectors. Run these `cast sig` commands and note each output:
-
-```bash
-# Staking Precompile (0x0000000000000000000000000000000000000800)
-cast sig "bond(uint128)"
-cast sig "bondExtra(uint128)"
-cast sig "unbond(uint128)"
-cast sig "nominationPools_pendingRewards(uint32)"
-cast sig "delegationDash_pendingRewards(address)"
-
-# XCM Precompile (0x0000000000000000000000000000000000000808)
-cast sig "xcmSend(bytes32,bytes)"
-cast sig "xcmExecute(bytes,uint64)"
-
-# Assets Precompile (0x0000000000000000000000000000000000000806)
-cast sig "balanceOf(address,uint128)"
-cast sig "transfer(uint128,address,uint256)"
-```
+Before building Rust, you must replace all `SEL_*` placeholder constants with real 4-byte ABI selectors. Run these `cast sig` commands and note each output(i already did this)
 
 ### Step 1.2 — Paste Selectors into Rust Source
 
-Open `pvm-modules/src/precompiles/yield_optimizer_precompile.rs` and replace each placeholder:
+Open `pvm-modules/precompiles/yield_optimizer_precompile.rs` and replace each placeholder:
 
-```rust
-// BEFORE (placeholders)
-const SEL_PENDING_REWARDS: [u8; 4] = [0x00, 0x00, 0x00, 0x01];
-const SEL_XCM_SEND:        [u8; 4] = [0x00, 0x00, 0x00, 0x02];
-
-// AFTER (real values from cast sig output)
-// Example — yours will differ based on exact signatures
-const SEL_PENDING_REWARDS: [u8; 4] = [0xf9, 0x40, 0xe3, 0x85];
-const SEL_XCM_SEND:        [u8; 4] = [0xb6, 0x56, 0x08, 0x1e];
-```
-
-Do the same in `math_lib_precompile.rs` for any staking precompile calls it makes.
+Do the same in `math_lib_precompile.rs` for any staking precompile calls it makes.(i already did this)
 
 ### Step 1.3 — Confirm Precompile Addresses
 
-The custom precompile addresses (`0x1001`, `0x1002`) must be confirmed available on your target runtime. For Westend Asset Hub check the runtime source or ask in the Parity Discord `#asset-hub` channel. If different addresses are assigned, update these files:
+The custom precompile addresses (`0x1001`, `0x1002`) must be confirmed available on your target runtime. If different addresses are assigned, update these files:
 
 - `pvm-modules/src/precompile_set.rs` — the address range registration
 - `pvm-modules/src/abi.rs` — any self-referential address constants  

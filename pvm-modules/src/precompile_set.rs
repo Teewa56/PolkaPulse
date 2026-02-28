@@ -14,13 +14,6 @@
 /// Protocol-level precompiles (like PolkaPulse's) should be placed in a higher
 /// range to avoid collisions. We use the 0x0000...1000 range.
 ///
-/// ADDING TO RUNTIME:
-/// In your Asset Hub runtime (e.g. runtime/src/lib.rs), add to the
-/// pallet_revive::Config implementation:
-///
-///   type Precompiles = PolkaPulsePrecompileSet;
-///
-/// and ensure PolkaPulsePrecompileSet is imported from this crate.
 
 use sp_core::H160;
 use pallet_revive::evm::Ext;
