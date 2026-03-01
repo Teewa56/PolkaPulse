@@ -16,7 +16,6 @@
 ///
 
 use sp_core::H160;
-use pallet_revive::evm::Ext;
 use crate::precompiles::{
     math_lib_precompile,
     yield_optimizer_precompile,

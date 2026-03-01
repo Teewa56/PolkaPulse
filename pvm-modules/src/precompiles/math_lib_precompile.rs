@@ -20,7 +20,6 @@
 /// returns an ABI-encoded (bool success=false, uint32 errorCode) tuple.
 
 use ethabi::{decode, encode, ParamType, Token};
-use pallet_revive::evm::Ext;
 use crate::math_lib::{
     self, MathError, PRECISION
 };
