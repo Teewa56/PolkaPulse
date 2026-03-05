@@ -4,7 +4,7 @@
 
 ## 1. Overview
 
-PolkaPulse is a decentralized Yield-as-a-Service (YaaS) protocol built natively for the Polkadot 2.0 ecosystem. It is deployed on Polkadot's Asset Hub using PVM (Polkadot Virtual Machine) smart contracts, and it automates the entire lifecycle of DOT yield — from harvesting staking rewards, to cross-chain DeFi deployment via XCM v5, to purchasing Agile Coretime on behalf of partner parachains in exchange for boosted yield commitments.
+PolkaPulse is a decentralized Yield-as-a-Service (YaaS) protocol built natively for the Polkadot post-JAM ecosystem. It is deployed on Polkadot's Asset Hub using PVM (Polkadot Virtual Machine) smart contracts, and it automates the entire lifecycle of DOT yield — from harvesting staking rewards, to cross-chain DeFi deployment via XCM v5, to purchasing Agile Coretime on behalf of partner parachains in exchange for boosted yield commitments.
 
 The protocol introduces four core mechanisms: a hub-centric contract brain on Asset Hub, an Atomic Yield Loop that executes multi-step cross-chain operations in a single XCM instruction set, a Coretime Arbitrage Engine that connects yield generation with parachain blockspace funding, and precompile-based remote staking control over relay chain validator nominations. Depositors receive ppDOT — a rebasing ERC-20 receipt token that appreciates in value as yield accrues — and interact with a single contract entry point while the protocol handles all cross-chain execution autonomously.
 
@@ -238,7 +238,9 @@ Each of these parachain integrations relies entirely on XCM v5 — no bridging i
 
 ---
 
-## 8. Local Setup
+## 8. Setup
+
+check ["./local_setup.md"](local setup) for the testing of this project
 
 > **Note:** Under `pallet-revive`, the Rust math modules (`math_lib`, `yield_optimizer`) are runtime precompiles — they live at fixed on-chain addresses and do not require a separate deploy or instantiate step. Only the Solidity contracts in `smart-contracts/` need to be deployed. If you are running a local Chopsticks fork for step 11, ensure the fork is based on an Asset Hub snapshot that includes the `pallet-revive` runtime with the PolkaPulse precompiles registered, otherwise precompile calls will revert.
 

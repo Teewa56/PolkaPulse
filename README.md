@@ -5,7 +5,7 @@
 
 ## Introduction
 
-Polkadot has always been the most architecturally ambitious blockchain ecosystem ever built. With the arrival of JAM (Join-Accumulate Machine), the completion of the Great Migration, and the maturation of XCM v5 and Agile Coretime, Polkadot 2.0 is no longer a vision — it is a functioning, production-grade multicore computer running on a decentralized network of validators and parachains. The infrastructure is here. The capital is here. What has been missing is a protocol sophisticated enough to use it to its full potential.
+Polkadot has always been the most architecturally ambitious blockchain ecosystem ever built. With the arrival of JAM (Join-Accumulate Machine), the completion of the Great Migration, and the maturation of XCM v5 and Agile Coretime, Polkadot 3.0 is no longer a vision — it is a functioning, production-grade multicore computer running on a decentralized network of validators and parachains. The infrastructure is here. The capital is here. What has been missing is a protocol sophisticated enough to use it to its full potential.
 
 PolkaPulse is that protocol.
 
@@ -135,8 +135,6 @@ The entire system is self-contained on Polkadot's native infrastructure. No exte
 - cargo-contract installed (`cargo install cargo-contract`)
 - Git installed
 
-Check [TECHNICAL_DOCUMENTATION.md](TECHNICAL_DOCUMENTATION.md) for setup information.
-
 The script `scripts/simulate-yield-loop.ts` forks the Asset Hub testnet using Chopsticks and simulates a full Harvest → Teleport → Deploy XCM cycle locally.
 
 ---
@@ -159,7 +157,7 @@ Explore deep JAM integration as the JAM specification matures. Position PolkaPul
 
 ## Why This Is Only Possible on Polkadot
 
-PolkaPulse is not a protocol that could exist on Ethereum, Solana, Cosmos, or any other ecosystem. Every core feature depends on primitives that are unique to Polkadot. XCM v5's trustless cross-chain instruction execution is not available on any other platform — the closest alternatives are bridges, which introduce counterparty risk that PolkaPulse's entire security model is designed to eliminate. The PVM's ability to call native Rust libraries from Solidity-compatible interfaces is a capability that does not exist on the EVM in any form. Agile Coretime as a blockspace marketplace that can be purchased, traded, and assigned programmatically via smart contracts is a Polkadot 2.0 innovation with no equivalent elsewhere. And the Staking and XCM Precompiles that allow a Hub smart contract to remotely manage validator nominations on the relay chain represent a level of composability between the smart contract layer and the base consensus layer that no other blockchain has achieved. PolkaPulse exists because Polkadot 2.0 exists. It is a protocol that the ecosystem has made possible, and one that demonstrates exactly why Polkadot's architectural philosophy — shared security, native interoperability, and a programmable consensus layer — is the foundation that the next generation of DeFi deserves.
+PolkaPulse is not a protocol that could exist on Ethereum, Solana, Cosmos, or any other ecosystem. Every core feature depends on primitives that are unique to Polkadot. XCM v5's trustless cross-chain instruction execution is not available on any other platform — the closest alternatives are bridges, which introduce counterparty risk that PolkaPulse's entire security model is designed to eliminate. The PVM's ability to call native Rust libraries from Solidity-compatible interfaces is a capability that does not exist on the EVM in any form. Agile Coretime as a blockspace marketplace that can be purchased, traded, and assigned programmatically via smart contracts is a Polkadot 3.0 innovation with no equivalent elsewhere. And the Staking and XCM Precompiles that allow a Hub smart contract to remotely manage validator nominations on the relay chain represent a level of composability between the smart contract layer and the base consensus layer that no other blockchain has achieved. It is a protocol that the ecosystem has made possible, and one that demonstrates exactly why Polkadot's architectural philosophy — shared security, native interoperability, and a programmable consensus layer — is the foundation that the next generation of DeFi deserves.
 
 ---
 

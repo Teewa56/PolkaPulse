@@ -1,5 +1,6 @@
 import { HardhatUserConfig } from "hardhat/config";
-import "@nomicfoundation/hardhat-toolbox";
+import "@nomicfoundation/hardhat-ethers";
+import "@nomicfoundation/hardhat-chai-matchers";
 import "@nomicfoundation/hardhat-ignition";
 import * as dotenv from "dotenv";
 
@@ -41,18 +42,6 @@ const config: HardhatUserConfig = {
         tests:     "./test",
         cache:     "./cache",
         artifacts: "./artifacts",
-    },
-
-    gasReporter: {
-        enabled: process.env.REPORT_GAS === "true",
-        currency: "USD",
-        outputFile: "gas-report.txt",
-        noColors: true,
-    },
-
-    typechain: {
-        outDir: "typechain-types",
-        target: "ethers-v6",
     },
 };
 
