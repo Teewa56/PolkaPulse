@@ -1,43 +1,37 @@
-import { expect } from "chai";
-import { ethers } from "hardhat";
-import { loadFixture, time } from "@nomicfoundation/hardhat-toolbox/network-helpers";
+import { describe, it } from "node:test";
+import { strict as assert } from "node:assert";
+import { network } from "hardhat";
+import { parseUnits, zeroAddress } from "viem";
+
+const { viem, networkHelpers } = await network.connect();
 
 describe("PolkaPulseCore", function () {
 
     async function deployFixture() {
-        const [owner, admin, alice, bob, attacker] = await ethers.getSigners();
+        const [owner, admin, alice, bob, attacker] = await viem.getWalletClients();
 
-        const MockppDOT         = await ethers.getContractFactory("MockppDOT");
-        const ppdot             = await MockppDOT.deploy();
+        const ppdot             = await viem.deployContract("MockppDOT");
+        const rewardMonitor     = await viem.deployContract("MockRewardMonitor");
+        const yieldExecutor     = await viem.deployContract("MockAtomicYieldExecutor");
+        const coretimeArbitrage = await viem.deployContract("MockCoretimeArbitrage");
+        const core = await viem.deployContract("PolkaPulseCore");
 
-        const MockRewardMonitor = await ethers.getContractFactory("MockRewardMonitor");
-        const rewardMonitor     = await MockRewardMonitor.deploy();
+        await core.write.initialize([
+            admin!.account!.address,
+            ppdot.address,
+            rewardMonitor.address,
+            yieldExecutor.address,
+            coretimeArbitrage.address,
+            200,
+        ]);
 
-        const MockExecutor      = await ethers.getContractFactory("MockAtomicYieldExecutor");
-        const yieldExecutor     = await MockExecutor.deploy();
+        await ppdot.write.setCore([core.address]);
+        await rewardMonitor.write.setCore([core.address]);
+        await yieldExecutor.write.setCore([core.address]);
+        await coretimeArbitrage.write.setCore([core.address]);
 
-        const MockCoretime      = await ethers.getContractFactory("MockCoretimeArbitrage");
-        const coretimeArbitrage = await MockCoretime.deploy();
-
-        const Core = await ethers.getContractFactory("PolkaPulseCore");
-        const core = await Core.deploy();
-
-        await core.initialize(
-            admin.address,
-            await ppdot.getAddress(),
-            await rewardMonitor.getAddress(),
-            await yieldExecutor.getAddress(),
-            await coretimeArbitrage.getAddress(),
-            200
-        );
-
-        await ppdot.setCore(await core.getAddress());
-        await rewardMonitor.setCore(await core.getAddress());
-        await yieldExecutor.setCore(await core.getAddress());
-        await coretimeArbitrage.setCore(await core.getAddress());
-
-        const ONE_DOT     = ethers.parseUnits("1", 18);
-        const HUNDRED_DOT = ethers.parseUnits("100", 18);
+        const ONE_DOT     = parseUnits("1", 18);
+        const HUNDRED_DOT = parseUnits("100", 18);
 
         return {
             core, ppdot, rewardMonitor, yieldExecutor, coretimeArbitrage,
@@ -53,46 +47,62 @@ describe("PolkaPulseCore", function () {
     describe("Initialization", function () {
 
         it("sets admin correctly", async function () {
-            const { core, admin } = await loadFixture(deployFixture);
-            expect(await core.admin()).to.equal(admin.address);
+            const { core, admin } = await networkHelpers.loadFixture(deployFixture);
+            assert.strictEqual(await core.read.admin(), admin!.account!.address);
         });
 
         it("sets protocolFeeBps to 200", async function () {
-            const { core } = await loadFixture(deployFixture);
-            expect(await core.protocolFeeBps()).to.equal(200);
+            const { core } = await networkHelpers.loadFixture(deployFixture);
+            assert.strictEqual(await core.read.protocolFeeBps(), 200);
         });
 
         it("reverts if initialize() is called a second time", async function () {
             const { core, admin, ppdot, rewardMonitor, yieldExecutor, coretimeArbitrage } =
-                await loadFixture(deployFixture);
-            await expect(
-                core.initialize(
-                    admin.address,
-                    await ppdot.getAddress(),
-                    await rewardMonitor.getAddress(),
-                    await yieldExecutor.getAddress(),
-                    await coretimeArbitrage.getAddress(),
-                    200
-                )
-            ).to.be.revertedWithCustomError(core, "AlreadyInitialized");
+                await networkHelpers.loadFixture(deployFixture);
+            await viem.assertions.revertWithCustomError(
+                core.write.initialize([
+                    admin!.account!.address,
+                    ppdot.address,
+                    rewardMonitor.address,
+                    yieldExecutor.address,
+                    coretimeArbitrage.address,
+                    200,
+                ]),
+                core,
+                "AlreadyInitialized",
+            );
         });
 
         it("reverts if admin is zero address", async function () {
-            const Core  = await ethers.getContractFactory("PolkaPulseCore");
-            const fresh = await Core.deploy();
-            const [,, alice] = await ethers.getSigners();
-            await expect(
-                fresh.initialize(ethers.ZeroAddress, alice.address, alice.address, alice.address, alice.address, 200)
-            ).to.be.revertedWith("Validation: zero address not permitted");
+            const fresh = await viem.deployContract("PolkaPulseCore");
+            const [, , alice] = await viem.getWalletClients();
+            await viem.assertions.revertWith(
+                fresh.write.initialize([
+                    zeroAddress,
+                    alice!.account!.address,
+                    alice!.account!.address,
+                    alice!.account!.address,
+                    alice!.account!.address,
+                    200,
+                ]),
+                "Validation: zero address not permitted",
+            );
         });
 
         it("reverts if protocolFeeBps exceeds 10_000", async function () {
-            const Core  = await ethers.getContractFactory("PolkaPulseCore");
-            const fresh = await Core.deploy();
-            const [, admin, alice] = await ethers.getSigners();
-            await expect(
-                fresh.initialize(admin.address, alice.address, alice.address, alice.address, alice.address, 10_001)
-            ).to.be.revertedWith("Validation: BPS exceeds 100%");
+            const fresh = await viem.deployContract("PolkaPulseCore");
+            const [, admin, alice] = await viem.getWalletClients();
+            await viem.assertions.revertWith(
+                fresh.write.initialize([
+                    admin!.account!.address,
+                    alice!.account!.address,
+                    alice!.account!.address,
+                    alice!.account!.address,
+                    alice!.account!.address,
+                    10_001,
+                ]),
+                "Validation: BPS exceeds 100%",
+            );
         });
     });
 
@@ -103,35 +113,43 @@ describe("PolkaPulseCore", function () {
     describe("deposit()", function () {
 
         it("reverts on zero amount", async function () {
-            const { core, alice } = await loadFixture(deployFixture);
-            await expect(core.connect(alice).deposit(0))
-                .to.be.revertedWith("Validation: amount must be greater than zero");
+            const { core, alice } = await networkHelpers.loadFixture(deployFixture);
+            await viem.assertions.revertWith(
+                core.write.deposit([0n], { account: alice!.account }),
+                "Validation: amount must be greater than zero",
+            );
         });
 
         it("reverts when paused", async function () {
-            const { core, admin, alice, ONE_DOT } = await loadFixture(deployFixture);
-            await core.connect(admin).pause();
-            await expect(core.connect(alice).deposit(ONE_DOT))
-                .to.be.revertedWithCustomError(core, "Paused");
+            const { core, admin, alice, ONE_DOT } = await networkHelpers.loadFixture(deployFixture);
+            await core.write.pause({ account: admin!.account });
+            await viem.assertions.revertWithCustomError(
+                core.write.deposit([ONE_DOT], { account: alice!.account }),
+                core,
+                "Paused",
+            );
         });
 
         it("increases totalDOT by exact deposit amount", async function () {
-            const { core, alice, ONE_DOT } = await loadFixture(deployFixture);
-            await core.connect(alice).deposit(ONE_DOT);
-            expect(await core.totalDOT()).to.equal(ONE_DOT);
+            const { core, alice, ONE_DOT } = await networkHelpers.loadFixture(deployFixture);
+            await core.write.deposit([ONE_DOT], { account: alice!.account });
+            assert.strictEqual(await core.read.totalDOT(), ONE_DOT);
         });
 
         it("emits Deposited event", async function () {
-            const { core, alice, ONE_DOT } = await loadFixture(deployFixture);
-            await expect(core.connect(alice).deposit(ONE_DOT))
-                .to.emit(core, "Deposited");
+            const { core, alice, ONE_DOT } = await networkHelpers.loadFixture(deployFixture);
+            await viem.assertions.emit(
+                core.write.deposit([ONE_DOT], { account: alice!.account }),
+                core,
+                "Deposited",
+            );
         });
 
         it("accumulates totalDOT across multiple depositors", async function () {
-            const { core, alice, bob, ONE_DOT, HUNDRED_DOT } = await loadFixture(deployFixture);
-            await core.connect(alice).deposit(ONE_DOT);
-            await core.connect(bob).deposit(HUNDRED_DOT);
-            expect(await core.totalDOT()).to.equal(ONE_DOT + HUNDRED_DOT);
+            const { core, alice, bob, ONE_DOT, HUNDRED_DOT } = await networkHelpers.loadFixture(deployFixture);
+            await core.write.deposit([ONE_DOT], { account: alice!.account });
+            await core.write.deposit([HUNDRED_DOT], { account: bob!.account });
+            assert.strictEqual(await core.read.totalDOT(), ONE_DOT + HUNDRED_DOT);
         });
     });
 
@@ -142,37 +160,47 @@ describe("PolkaPulseCore", function () {
     describe("withdraw()", function () {
 
         it("reverts on zero shares", async function () {
-            const { core, alice } = await loadFixture(deployFixture);
-            await expect(core.connect(alice).withdraw(0))
-                .to.be.revertedWith("Validation: amount must be greater than zero");
+            const { core, alice } = await networkHelpers.loadFixture(deployFixture);
+            await viem.assertions.revertWith(
+                core.write.withdraw([0n], { account: alice!.account }),
+                "Validation: amount must be greater than zero",
+            );
         });
 
         it("reverts when paused", async function () {
-            const { core, admin, alice } = await loadFixture(deployFixture);
-            await core.connect(admin).pause();
-            await expect(core.connect(alice).withdraw(1000n))
-                .to.be.revertedWithCustomError(core, "Paused");
+            const { core, admin, alice } = await networkHelpers.loadFixture(deployFixture);
+            await core.write.pause({ account: admin!.account });
+            await viem.assertions.revertWithCustomError(
+                core.write.withdraw([1000n], { account: alice!.account }),
+                core,
+                "Paused",
+            );
         });
 
         it("reverts if user has insufficient shares", async function () {
-            const { core, alice, ONE_DOT } = await loadFixture(deployFixture);
-            await core.connect(alice).deposit(ONE_DOT);
-            await expect(core.connect(alice).withdraw(ONE_DOT * 999n))
-                .to.be.revertedWith("Validation: insufficient ppDOT shares");
+            const { core, alice, ONE_DOT } = await networkHelpers.loadFixture(deployFixture);
+            await core.write.deposit([ONE_DOT], { account: alice!.account });
+            await viem.assertions.revertWith(
+                core.write.withdraw([ONE_DOT * 999n], { account: alice!.account }),
+                "Validation: insufficient ppDOT shares",
+            );
         });
 
         it("decreases totalDOT after withdrawal", async function () {
-            const { core, alice, ONE_DOT } = await loadFixture(deployFixture);
-            await core.connect(alice).deposit(ONE_DOT);
-            await core.connect(alice).withdraw(ONE_DOT);
-            expect(await core.totalDOT()).to.equal(0);
+            const { core, alice, ONE_DOT } = await networkHelpers.loadFixture(deployFixture);
+            await core.write.deposit([ONE_DOT], { account: alice!.account });
+            await core.write.withdraw([ONE_DOT], { account: alice!.account });
+            assert.strictEqual(await core.read.totalDOT(), 0n);
         });
 
         it("emits Withdrawn event", async function () {
-            const { core, alice, ONE_DOT } = await loadFixture(deployFixture);
-            await core.connect(alice).deposit(ONE_DOT);
-            await expect(core.connect(alice).withdraw(ONE_DOT))
-                .to.emit(core, "Withdrawn");
+            const { core, alice, ONE_DOT } = await networkHelpers.loadFixture(deployFixture);
+            await core.write.deposit([ONE_DOT], { account: alice!.account });
+            await viem.assertions.emit(
+                core.write.withdraw([ONE_DOT], { account: alice!.account }),
+                core,
+                "Withdrawn",
+            );
         });
     });
 
@@ -183,47 +211,60 @@ describe("PolkaPulseCore", function () {
     describe("executeYieldLoop()", function () {
 
         it("reverts when paused", async function () {
-            const { core, admin } = await loadFixture(deployFixture);
-            await core.connect(admin).pause();
-            await expect(core.executeYieldLoop())
-                .to.be.revertedWithCustomError(core, "Paused");
+            const { core, admin } = await networkHelpers.loadFixture(deployFixture);
+            await core.write.pause({ account: admin!.account });
+            await viem.assertions.revertWithCustomError(
+                core.write.executeYieldLoop(),
+                core,
+                "Paused",
+            );
         });
 
         it("reverts when harvest is not ready", async function () {
-            const { core, rewardMonitor } = await loadFixture(deployFixture);
-            await rewardMonitor.setHarvestReady(false);
-            await expect(core.executeYieldLoop())
-                .to.be.revertedWithCustomError(core, "HarvestNotReady");
+            const { core, rewardMonitor } = await networkHelpers.loadFixture(deployFixture);
+            await rewardMonitor.write.setHarvestReady([false]);
+            await viem.assertions.revertWithCustomError(
+                core.write.executeYieldLoop(),
+                core,
+                "HarvestNotReady",
+            );
         });
 
         it("reverts if optimizer returns failure", async function () {
             const { core, rewardMonitor, yieldExecutor, alice, ONE_DOT } =
-                await loadFixture(deployFixture);
-            await core.connect(alice).deposit(ONE_DOT);
-            await rewardMonitor.setHarvestReady(true);
-            await yieldExecutor.setReturnFailure(true);
-            await expect(core.executeYieldLoop())
-                .to.be.revertedWithCustomError(core, "YieldLoopFailed");
+                await networkHelpers.loadFixture(deployFixture);
+            await core.write.deposit([ONE_DOT], { account: alice!.account });
+            await rewardMonitor.write.setHarvestReady([true]);
+            await yieldExecutor.write.setReturnFailure([true]);
+            await viem.assertions.revertWithCustomError(
+                core.write.executeYieldLoop(),
+                core,
+                "YieldLoopFailed",
+            );
         });
 
         it("increases totalDOT by net yield after successful loop", async function () {
             const { core, rewardMonitor, yieldExecutor, alice, ONE_DOT } =
-                await loadFixture(deployFixture);
-            await core.connect(alice).deposit(ONE_DOT);
-            await rewardMonitor.setHarvestReady(true);
-            await yieldExecutor.setExpectedYield(ethers.parseUnits("0.1", 18));
-            const before = await core.totalDOT();
-            await core.executeYieldLoop();
-            expect(await core.totalDOT()).to.be.gt(before);
+                await networkHelpers.loadFixture(deployFixture);
+            await core.write.deposit([ONE_DOT], { account: alice!.account });
+            await rewardMonitor.write.setHarvestReady([true]);
+            await yieldExecutor.write.setExpectedYield([parseUnits("0.1", 18)]);
+            const before = await core.read.totalDOT();
+            await core.write.executeYieldLoop();
+            assert.ok((await core.read.totalDOT()) > before);
         });
 
         it("emits Rebased event", async function () {
             const { core, rewardMonitor, yieldExecutor, alice, ONE_DOT } =
-                await loadFixture(deployFixture);
-            await core.connect(alice).deposit(ONE_DOT);
-            await rewardMonitor.setHarvestReady(true);
-            await yieldExecutor.setExpectedYield(ethers.parseUnits("0.1", 18));
-            await expect(core.executeYieldLoop()).to.emit(core, "Rebased");
+                await networkHelpers.loadFixture(deployFixture);
+            await core.write.deposit([ONE_DOT], { account: alice!.account });
+            await rewardMonitor.write.setHarvestReady([true]);
+            await yieldExecutor.write.setExpectedYield([parseUnits("0.1", 18)]);
+            await viem.assertions.emit(
+                core.write.executeYieldLoop(),
+                core,
+                "Rebased",
+            );
         });
     });
 
@@ -234,11 +275,13 @@ describe("PolkaPulseCore", function () {
     describe("Re-entrancy protection", function () {
 
         it("blocks re-entrant deposit() calls", async function () {
-            const { core } = await loadFixture(deployFixture);
-            const Attack   = await ethers.getContractFactory("MockReentrancyAttack");
-            const attacker = await Attack.deploy(await core.getAddress());
-            await expect(attacker.attack())
-                .to.be.revertedWithCustomError(core, "ReentrantCall");
+            const { core } = await networkHelpers.loadFixture(deployFixture);
+            const attacker = await viem.deployContract("MockReentrancyAttack", [core.address]);
+            await viem.assertions.revertWithCustomError(
+                attacker.write.attack(),
+                core,
+                "ReentrantCall",
+            );
         });
     });
 
@@ -249,57 +292,77 @@ describe("PolkaPulseCore", function () {
     describe("Access control", function () {
 
         it("non-admin cannot pause", async function () {
-            const { core, alice } = await loadFixture(deployFixture);
-            await expect(core.connect(alice).pause())
-                .to.be.revertedWithCustomError(core, "NotAdmin");
+            const { core, alice } = await networkHelpers.loadFixture(deployFixture);
+            await viem.assertions.revertWithCustomError(
+                core.write.pause({ account: alice!.account }),
+                core,
+                "NotAdmin",
+            );
         });
 
         it("non-admin cannot unpause", async function () {
-            const { core, admin, alice } = await loadFixture(deployFixture);
-            await core.connect(admin).pause();
-            await expect(core.connect(alice).unpause())
-                .to.be.revertedWithCustomError(core, "NotAdmin");
+            const { core, admin, alice } = await networkHelpers.loadFixture(deployFixture);
+            await core.write.pause({ account: admin!.account });
+            await viem.assertions.revertWithCustomError(
+                core.write.unpause({ account: alice!.account }),
+                core,
+                "NotAdmin",
+            );
         });
 
         it("non-admin cannot setRewardThreshold", async function () {
-            const { core, alice } = await loadFixture(deployFixture);
-            await expect(core.connect(alice).setRewardThreshold(1000n))
-                .to.be.revertedWithCustomError(core, "NotAdmin");
+            const { core, alice } = await networkHelpers.loadFixture(deployFixture);
+            await viem.assertions.revertWithCustomError(
+                core.write.setRewardThreshold([1000n], { account: alice!.account }),
+                core,
+                "NotAdmin",
+            );
         });
 
         it("non-admin cannot setProtocolFee", async function () {
-            const { core, alice } = await loadFixture(deployFixture);
-            await expect(core.connect(alice).setProtocolFee(300))
-                .to.be.revertedWithCustomError(core, "NotAdmin");
+            const { core, alice } = await networkHelpers.loadFixture(deployFixture);
+            await viem.assertions.revertWithCustomError(
+                core.write.setProtocolFee([300], { account: alice!.account }),
+                core,
+                "NotAdmin",
+            );
         });
 
         it("admin can pause and unpause", async function () {
-            const { core, admin } = await loadFixture(deployFixture);
-            await core.connect(admin).pause();
-            expect(await core.paused()).to.equal(true);
-            await core.connect(admin).unpause();
-            expect(await core.paused()).to.equal(false);
+            const { core, admin } = await networkHelpers.loadFixture(deployFixture);
+            await core.write.pause({ account: admin!.account });
+            assert.strictEqual(await core.read.paused(), true);
+            await core.write.unpause({ account: admin!.account });
+            assert.strictEqual(await core.read.paused(), false);
         });
 
         it("admin cannot set fee above 100%", async function () {
-            const { core, admin } = await loadFixture(deployFixture);
-            await expect(core.connect(admin).setProtocolFee(10_001))
-                .to.be.revertedWith("Validation: BPS exceeds 100%");
+            const { core, admin } = await networkHelpers.loadFixture(deployFixture);
+            await viem.assertions.revertWith(
+                core.write.setProtocolFee([10_001], { account: admin!.account }),
+                "Validation: BPS exceeds 100%",
+            );
         });
 
         it("emits ProtocolPaused with caller address", async function () {
-            const { core, admin } = await loadFixture(deployFixture);
-            await expect(core.connect(admin).pause())
-                .to.emit(core, "ProtocolPaused")
-                .withArgs(admin.address);
+            const { core, admin } = await networkHelpers.loadFixture(deployFixture);
+            await viem.assertions.emitWithArgs(
+                core.write.pause({ account: admin!.account }),
+                core,
+                "ProtocolPaused",
+                [admin!.account!.address],
+            );
         });
 
         it("emits ProtocolUnpaused with caller address", async function () {
-            const { core, admin } = await loadFixture(deployFixture);
-            await core.connect(admin).pause();
-            await expect(core.connect(admin).unpause())
-                .to.emit(core, "ProtocolUnpaused")
-                .withArgs(admin.address);
+            const { core, admin } = await networkHelpers.loadFixture(deployFixture);
+            await core.write.pause({ account: admin!.account });
+            await viem.assertions.emitWithArgs(
+                core.write.unpause({ account: admin!.account }),
+                core,
+                "ProtocolUnpaused",
+                [admin!.account!.address],
+            );
         });
     });
 
@@ -310,24 +373,24 @@ describe("PolkaPulseCore", function () {
     describe("Exchange rate", function () {
 
         it("sharesToDOT at 1:1 rate equals input", async function () {
-            const { core, ONE_DOT } = await loadFixture(deployFixture);
-            expect(await core.sharesToDOT(ONE_DOT)).to.equal(ONE_DOT);
+            const { core, ONE_DOT } = await networkHelpers.loadFixture(deployFixture);
+            assert.strictEqual(await core.read.sharesToDOT([ONE_DOT]), ONE_DOT);
         });
 
         it("dotToShares at 1:1 rate equals input", async function () {
-            const { core, ONE_DOT } = await loadFixture(deployFixture);
-            expect(await core.dotToShares(ONE_DOT)).to.equal(ONE_DOT);
+            const { core, ONE_DOT } = await networkHelpers.loadFixture(deployFixture);
+            assert.strictEqual(await core.read.dotToShares([ONE_DOT]), ONE_DOT);
         });
 
         it("exchange rate does not decrease after yield", async function () {
             const { core, rewardMonitor, yieldExecutor, alice, ONE_DOT } =
-                await loadFixture(deployFixture);
-            await core.connect(alice).deposit(ONE_DOT);
-            await rewardMonitor.setHarvestReady(true);
-            await yieldExecutor.setExpectedYield(ethers.parseUnits("0.05", 18));
-            const before = await core.exchangeRate();
-            await core.executeYieldLoop();
-            expect(await core.exchangeRate()).to.be.gte(before);
+                await networkHelpers.loadFixture(deployFixture);
+            await core.write.deposit([ONE_DOT], { account: alice!.account });
+            await rewardMonitor.write.setHarvestReady([true]);
+            await yieldExecutor.write.setExpectedYield([parseUnits("0.05", 18)]);
+            const before = await core.read.exchangeRate();
+            await core.write.executeYieldLoop();
+            assert.ok((await core.read.exchangeRate()) >= before);
         });
     });
 });

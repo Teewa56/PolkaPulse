@@ -22,7 +22,6 @@
   "dependencies": {
     "@chainlink/contracts": "^1.5.0",
     "@nomicfoundation/hardhat-ignition-viem": "^3.0.7",
-    "@nomicfoundation/hardhat-toolbox": "^6.1.0",
     "@openzeppelin/contracts": "^4.9.6",
     "@parity/hardhat-polkadot": "^0.2.7",
     "dotenv": "^17.3.1"

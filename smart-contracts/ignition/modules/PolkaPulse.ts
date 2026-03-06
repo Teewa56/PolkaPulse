@@ -1,5 +1,5 @@
 import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
-import { parseUnits } from "ethers";
+import { parseUnits } from "viem";
 
 // DEPLOYMENT ORDER (order-dependent):
 //   1. PolkaPulseMultisig      — sets up M-of-N governance signers

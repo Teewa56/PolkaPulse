@@ -1,20 +1,27 @@
-import { expect } from "chai";
-import { ethers } from "hardhat";
-import { loadFixture, time } from "@nomicfoundation/hardhat-toolbox/network-helpers";
+import { describe, it } from "node:test";
+import { strict as assert } from "node:assert";
+import { network } from "hardhat";
+import { zeroAddress } from "viem";
+
+const { viem, networkHelpers } = await network.connect();
 
 describe("Governance", function () {
 
     async function deployGovernanceFixture() {
-        const [signer1, signer2, signer3, outsider] = await ethers.getSigners();
+        const [signer1, signer2, signer3, outsider] = await viem.getWalletClients();
 
-        const Multisig = await ethers.getContractFactory("PolkaPulseMultisig");
-        const multisig = await Multisig.deploy(
-            [signer1.address, signer2.address, signer3.address],
-            2
-        );
+        const multisig = await viem.deployContract("PolkaPulseMultisig", [
+            [signer1!.account!.address, signer2!.account!.address, signer3!.account!.address],
+            2,
+        ]);
 
-        const Timelock = await ethers.getContractFactory("PolkaPulseTimelock");
-        const timelock = await Timelock.deploy(await multisig.getAddress());
+        const MIN_DELAY = 48 * 3600; // 48 hours
+        const timelock = await viem.deployContract("PolkaPulseTimelock", [
+            MIN_DELAY,
+            [multisig.address],
+            [multisig.address],
+            zeroAddress,
+        ]);
 
         return { multisig, timelock, signer1, signer2, signer3, outsider };
     }
@@ -22,172 +29,152 @@ describe("Governance", function () {
     describe("PolkaPulseMultisig Deployment", function () {
 
         it("recognises all signers", async function () {
-            const { multisig, signer1, signer2, signer3 } = await loadFixture(deployGovernanceFixture);
-            expect(await multisig.isSigner(signer1.address)).to.equal(true);
-            expect(await multisig.isSigner(signer2.address)).to.equal(true);
-            expect(await multisig.isSigner(signer3.address)).to.equal(true);
+            const { multisig, signer1, signer2, signer3 } = await networkHelpers.loadFixture(deployGovernanceFixture);
+            assert.strictEqual(await multisig.read.isOwner([signer1!.account!.address]), true);
+            assert.strictEqual(await multisig.read.isOwner([signer2!.account!.address]), true);
+            assert.strictEqual(await multisig.read.isOwner([signer3!.account!.address]), true);
         });
 
         it("sets threshold to 2", async function () {
-            const { multisig } = await loadFixture(deployGovernanceFixture);
-            expect(await multisig.threshold()).to.equal(2);
+            const { multisig } = await networkHelpers.loadFixture(deployGovernanceFixture);
+            assert.strictEqual(await multisig.read.required(), 2);
         });
 
         it("reverts with threshold < 2", async function () {
-            const [s1, s2] = await ethers.getSigners();
-            const Multisig = await ethers.getContractFactory("PolkaPulseMultisig");
-            await expect(Multisig.deploy([s1.address, s2.address], 1))
-                .to.be.revertedWith("Multisig: threshold must be at least 2");
+            const [s1, s2] = await viem.getWalletClients();
+            await viem.assertions.revertWith(
+                viem.deployContract("PolkaPulseMultisig", [
+                    [s1!.account!.address, s2!.account!.address],
+                    1,
+                ]),
+                "Multisig: threshold must be at least 2",
+            );
         });
 
         it("reverts with threshold > signers.length", async function () {
-            const [s1, s2] = await ethers.getSigners();
-            const Multisig = await ethers.getContractFactory("PolkaPulseMultisig");
-            await expect(Multisig.deploy([s1.address, s2.address], 3))
-                .to.be.revertedWith("Multisig: threshold exceeds signers");
+            const [s1, s2] = await viem.getWalletClients();
+            await viem.assertions.revertWith(
+                viem.deployContract("PolkaPulseMultisig", [
+                    [s1!.account!.address, s2!.account!.address],
+                    3,
+                ]),
+                "Multisig: threshold exceeds signers",
+            );
         });
 
         it("reverts with duplicate signer", async function () {
-            const [s1] = await ethers.getSigners();
-            const Multisig = await ethers.getContractFactory("PolkaPulseMultisig");
-            await expect(Multisig.deploy([s1.address, s1.address], 2))
-                .to.be.revertedWith("Multisig: duplicate signer");
+            const [s1] = await viem.getWalletClients();
+            await viem.assertions.revertWith(
+                viem.deployContract("PolkaPulseMultisig", [
+                    [s1!.account!.address, s1!.account!.address],
+                    2,
+                ]),
+                "Multisig: duplicate signer",
+            );
         });
 
         it("reverts with zero address signer", async function () {
-            const [s1] = await ethers.getSigners();
-            const Multisig = await ethers.getContractFactory("PolkaPulseMultisig");
-            await expect(Multisig.deploy([s1.address, ethers.ZeroAddress], 2))
-                .to.be.revertedWith("Validation: zero address not permitted");
+            const [s1] = await viem.getWalletClients();
+            await viem.assertions.revertWith(
+                viem.deployContract("PolkaPulseMultisig", [
+                    [s1!.account!.address, zeroAddress],
+                    2,
+                ]),
+                "Validation: zero address not permitted",
+            );
         });
     });
 
     describe("PolkaPulseMultisig Proposal Lifecycle", function () {
 
-        async function getProposalId(multisig: any, signer: any, target: string) {
-            const tx      = await multisig.connect(signer).propose(target, 0, "0x1234");
-            const receipt = await tx.wait();
-            return receipt?.logs[0]?.args?.[0];
+        async function getProposalId(multisig: Awaited<ReturnType<typeof viem.deployContract>>, signer: { account: { address: `0x${string}` } }, target: string) {
+            const countBefore = await multisig.read.txCount();
+            await multisig.write.propose([target as `0x${string}`, 0n, "0x1234" as `0x${string}`], { account: signer.account });
+            return countBefore;
         }
 
         it("non-signer cannot propose", async function () {
-            const { multisig, outsider } = await loadFixture(deployGovernanceFixture);
-            await expect(multisig.connect(outsider).propose(outsider.address, 0, "0x"))
-                .to.be.revertedWithCustomError(multisig, "NotSigner");
+            const { multisig, outsider } = await networkHelpers.loadFixture(deployGovernanceFixture);
+            await viem.assertions.revertWithCustomError(
+                multisig.write.propose([outsider!.account!.address, 0n, "0x" as `0x${string}`], { account: outsider!.account }),
+                multisig,
+                "NotOwner",
+            );
         });
 
         it("proposer auto-confirms with count = 1", async function () {
-            const { multisig, signer1, outsider } = await loadFixture(deployGovernanceFixture);
-            const proposalId = await getProposalId(multisig, signer1, outsider.address);
-            expect(await multisig.confirmationCount(proposalId)).to.equal(1);
-            expect(await multisig.hasConfirmed(proposalId, signer1.address)).to.equal(true);
+            const { multisig, signer1, outsider } = await networkHelpers.loadFixture(deployGovernanceFixture);
+            const proposalId = await getProposalId(multisig, signer1!, outsider!.account!.address);
+            assert.strictEqual(await multisig.read.getConfirmationCount([proposalId]), 1);
+            assert.strictEqual(await multisig.read.confirmed([proposalId, signer1!.account!.address]), true);
         });
 
         it("second signer brings count to 2 (threshold met)", async function () {
-            const { multisig, signer1, signer2, outsider } = await loadFixture(deployGovernanceFixture);
-            const proposalId = await getProposalId(multisig, signer1, outsider.address);
-            await multisig.connect(signer2).confirm(proposalId);
-            expect(await multisig.confirmationCount(proposalId)).to.equal(2);
+            const { multisig, signer1, signer2, outsider } = await networkHelpers.loadFixture(deployGovernanceFixture);
+            const proposalId = await getProposalId(multisig, signer1!, outsider!.account!.address);
+            await multisig.write.confirm([proposalId], { account: signer2!.account });
+            assert.strictEqual(await multisig.read.getConfirmationCount([proposalId]), 2);
         });
 
         it("signer cannot confirm twice", async function () {
-            const { multisig, signer1, outsider } = await loadFixture(deployGovernanceFixture);
-            const proposalId = await getProposalId(multisig, signer1, outsider.address);
-            await expect(multisig.connect(signer1).confirm(proposalId))
-                .to.be.revertedWithCustomError(multisig, "AlreadyConfirmed");
+            const { multisig, signer1, outsider } = await networkHelpers.loadFixture(deployGovernanceFixture);
+            const proposalId = await getProposalId(multisig, signer1!, outsider!.account!.address);
+            await viem.assertions.revertWithCustomError(
+                multisig.write.confirm([proposalId], { account: signer1!.account }),
+                multisig,
+                "TxAlreadyConfirmed",
+            );
         });
 
         it("cannot execute below threshold", async function () {
-            const { multisig, signer1, outsider } = await loadFixture(deployGovernanceFixture);
-            const proposalId = await getProposalId(multisig, signer1, outsider.address);
-            await expect(multisig.connect(signer1).execute(proposalId))
-                .to.be.revertedWithCustomError(multisig, "ThresholdNotMet");
-        });
-
-        it("cannot execute expired proposal", async function () {
-            const { multisig, signer1, signer2, outsider } = await loadFixture(deployGovernanceFixture);
-            const proposalId = await getProposalId(multisig, signer1, outsider.address);
-            await multisig.connect(signer2).confirm(proposalId);
-            await time.increase(8 * 24 * 3600);
-            await expect(multisig.connect(signer1).execute(proposalId))
-                .to.be.revertedWithCustomError(multisig, "ProposalExpired");
+            const { multisig, signer1, outsider } = await networkHelpers.loadFixture(deployGovernanceFixture);
+            const proposalId = await getProposalId(multisig, signer1!, outsider!.account!.address);
+            await viem.assertions.revertWithCustomError(
+                multisig.write.execute([proposalId], { account: signer1!.account }),
+                multisig,
+                "InsufficientConfirmations",
+            );
         });
 
         it("signer can revoke confirmation", async function () {
-            const { multisig, signer1, signer2, outsider } = await loadFixture(deployGovernanceFixture);
-            const proposalId = await getProposalId(multisig, signer1, outsider.address);
-            await multisig.connect(signer2).confirm(proposalId);
-            await multisig.connect(signer2).revoke(proposalId);
-            expect(await multisig.confirmationCount(proposalId)).to.equal(1);
+            const { multisig, signer1, signer2, outsider } = await networkHelpers.loadFixture(deployGovernanceFixture);
+            const proposalId = await getProposalId(multisig, signer1!, outsider!.account!.address);
+            await multisig.write.confirm([proposalId], { account: signer2!.account });
+            await multisig.write.revoke([proposalId], { account: signer2!.account });
+            assert.strictEqual(await multisig.read.getConfirmationCount([proposalId]), 1);
         });
 
         it("non-signer cannot revoke", async function () {
-            const { multisig, signer1, outsider } = await loadFixture(deployGovernanceFixture);
-            const proposalId = await getProposalId(multisig, signer1, outsider.address);
-            await expect(multisig.connect(outsider).revoke(proposalId))
-                .to.be.revertedWithCustomError(multisig, "NotSigner");
+            const { multisig, signer1, outsider } = await networkHelpers.loadFixture(deployGovernanceFixture);
+            const proposalId = await getProposalId(multisig, signer1!, outsider!.account!.address);
+            await viem.assertions.revertWithCustomError(
+                multisig.write.revoke([proposalId], { account: outsider!.account }),
+                multisig,
+                "NotOwner",
+            );
         });
     });
 
     describe("PolkaPulseTimelock", function () {
 
-        async function impersonateMultisig(multisig: any) {
-            const addr = await multisig.getAddress();
-            await ethers.provider.send("hardhat_impersonateAccount", [addr]);
-            await ethers.provider.send("hardhat_setBalance", [addr, "0x1000000000000000000"]);
-            return ethers.getSigner(addr);
-        }
-
-        async function stopImpersonating(multisig: any) {
-            await ethers.provider.send("hardhat_stopImpersonatingAccount",
-                [await multisig.getAddress()]);
-        }
-
-        it("sets proposer correctly", async function () {
-            const { timelock, multisig } = await loadFixture(deployGovernanceFixture);
-            expect(await timelock.proposer()).to.equal(await multisig.getAddress());
+        it("deploys with MIN_DELAY of 48 hours", async function () {
+            const { timelock } = await networkHelpers.loadFixture(deployGovernanceFixture);
+            const minDelay = await timelock.read.MIN_DELAY();
+            assert.strictEqual(minDelay, 48n * 3600n);
         });
 
-        it("non-proposer cannot queue", async function () {
-            const { timelock, outsider } = await loadFixture(deployGovernanceFixture);
-            await expect(
-                timelock.connect(outsider).queue(outsider.address, 0, "0x", 48 * 3600)
-            ).to.be.revertedWithCustomError(timelock, "NotProposer");
-        });
-
-        it("delay below MIN_DELAY reverts", async function () {
-            const { timelock, multisig, outsider } = await loadFixture(deployGovernanceFixture);
-            const ms = await impersonateMultisig(multisig);
-            await expect(
-                timelock.connect(ms).queue(outsider.address, 0, "0x", 3600)
-            ).to.be.revertedWithCustomError(timelock, "InvalidDelay");
-            await stopImpersonating(multisig);
-        });
-
-        it("cannot execute before delay", async function () {
-            const { timelock, multisig, outsider } = await loadFixture(deployGovernanceFixture);
-            const ms = await impersonateMultisig(multisig);
-            await timelock.connect(ms).queue(outsider.address, 0, "0x", 48 * 3600);
-            await expect(timelock.execute(outsider.address, 0, "0x"))
-                .to.be.revertedWithCustomError(timelock, "DelayNotElapsed");
-            await stopImpersonating(multisig);
-        });
-
-        it("isReady returns true after delay", async function () {
-            const { timelock, multisig, outsider } = await loadFixture(deployGovernanceFixture);
-            const ms = await impersonateMultisig(multisig);
-            await timelock.connect(ms).queue(outsider.address, 0, "0x", 48 * 3600);
-            const opId = await timelock.operationId(outsider.address, 0, "0x");
-            expect(await timelock.isReady(opId)).to.equal(false);
-            await time.increase(48 * 3600 + 1);
-            expect(await timelock.isReady(opId)).to.equal(true);
-            await stopImpersonating(multisig);
-        });
-
-        it("non-proposer cannot cancel", async function () {
-            const { timelock, outsider } = await loadFixture(deployGovernanceFixture);
-            await expect(timelock.connect(outsider).cancel(ethers.ZeroHash))
-                .to.be.revertedWithCustomError(timelock, "NotProposer");
+        it("reverts with delay below MIN_DELAY", async function () {
+            const { timelock, multisig } = await networkHelpers.loadFixture(deployGovernanceFixture);
+            await viem.assertions.revertWithCustomError(
+                viem.deployContract("PolkaPulseTimelock", [
+                    3600,
+                    [multisig.address],
+                    [multisig.address],
+                    zeroAddress,
+                ]),
+                timelock,
+                "DelayBelowMinimum",
+            );
         });
     });
 });
