@@ -58,18 +58,11 @@ contract PolkaPulseTimelock is TimelockController {
             revert DelayBelowMinimum(initialDelay, MIN_DELAY);
     }
 
-    /// @notice Override updateDelay to enforce the minimum delay floor.
-    ///         Even a valid timelock admin cannot set the delay below 48 hours.
-    /// @param newDelay  Proposed new delay in seconds.
-    function updateDelay(uint256 newDelay) external override {
-        // Only the timelock itself can call updateDelay (inherited behaviour)
-        require(
-            msg.sender == address(this),
-            "TimelockController: caller must be timelock"
-        );
-        if (newDelay < MIN_DELAY)
-            revert DelayBelowMinimum(newDelay, MIN_DELAY);
-
-        super.updateDelay(newDelay);
+    /// @notice Enforce a hard floor for the minimum delay.
+    ///         Even if the underlying TimelockController min delay is updated to
+    ///         something smaller, scheduling still requires at least MIN_DELAY.
+    function getMinDelay() public view override returns (uint256) {
+        uint256 d = super.getMinDelay();
+        return d < MIN_DELAY ? MIN_DELAY : d;
     }
 }

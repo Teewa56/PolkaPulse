@@ -28,9 +28,6 @@ import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.s
 ///         The `data` parameter is used to call `initialize()` on the first
 ///         implementation atomically with proxy deployment, preventing
 ///         frontrunning of the initializer.
-///
-/// @param implementation  Address of the first PolkaPulseCore implementation.
-/// @param data            ABI-encoded initializer call (e.g. initialize(...)).
 contract PolkaPulseProxy is ERC1967Proxy {
     constructor(address implementation, bytes memory data)
         ERC1967Proxy(implementation, data)

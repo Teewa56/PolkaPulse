@@ -4,8 +4,8 @@ pragma solidity ^0.8.20;
 import {AccessControlUpgradeable}   from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import {UUPSUpgradeable}            from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {Initializable}              from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
-import {PausableUpgradeable}        from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+import {PausableUpgradeable}        from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import {IPolkaPulseCore}            from "./interfaces/IPolkaPulseCore.sol";
 import {IAssetsPrecompile}          from "./interfaces/IAssetsPrecompile.sol";
 import {ppDOT}                      from "./ppDOT.sol";
@@ -357,10 +357,6 @@ contract PolkaPulseCore is
     ///         2. Effects: set _yieldLoopActive = true, update lastYieldBlock
     ///         3. Interact: harvest → execute → notify yield → accumulate reserve
     ///         4. Cleanup: set _yieldLoopActive = false
-    ///
-    /// @param optimizerCalldata ABI-encoded OptimizerInput for the PVM precompile.
-    ///                          Constructed off-chain by the keeper with current
-    ///                          market data (APYs, fees, risk scores).
     function executeYieldLoop()
         external
         override
@@ -528,13 +524,13 @@ contract PolkaPulseCore is
         onlyRole(UPGRADER_ROLE)
     {
         emit Events.UpgradeAuthorised(
-            _getImplementation(),
+            _erc1967Implementation(),
             newImplementation,
             msg.sender
         );
     }
 
-    function _getImplementation() internal view returns (address impl) {
+    function _erc1967Implementation() internal view returns (address impl) {
         bytes32 slot = 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
         assembly { impl := sload(slot) }
     }

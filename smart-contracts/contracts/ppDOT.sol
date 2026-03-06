@@ -309,14 +309,14 @@ contract ppDOT is
         onlyRole(UPGRADER_ROLE)
     {
         emit Events.UpgradeAuthorised(
-            _getImplementation(),
+            _erc1967Implementation(),
             newImplementation,
             msg.sender
         );
     }
 
     /// @dev Helper to read ERC-1967 implementation slot.
-    function _getImplementation() internal view returns (address impl) {
+    function _erc1967Implementation() internal view returns (address impl) {
         bytes32 slot = 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
         assembly { impl := sload(slot) }
     }
