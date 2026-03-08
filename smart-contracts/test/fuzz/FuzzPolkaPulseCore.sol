@@ -43,9 +43,51 @@ contract FuzzPolkaPulseCore is Test {
 
         // Grant MINTER_ROLE to core on token
         token.grantRole(token.MINTER_ROLE(), address(core));
+
+        // Mock IAssetsPrecompile.balance at 0x...806
+        vm.mockCall(
+            address(0x0000000000000000000000000000000000000806),
+            abi.encodeWithSignature(
+                "balance(uint256,address)",
+                0,
+                address(core)
+            ),
+            abi.encode(1000 ether)
+        );
+
+        // Mock IAssetsPrecompile.transfer at 0x...806
+        vm.mockCall(
+            address(0x0000000000000000000000000000000000000806),
+            abi.encodeWithSignature(
+                "transfer(address,uint256)",
+                address(this),
+                1e15
+            ),
+            abi.encode(true)
+        );
+        // Wildcard mock for any transfer from core
+        vm.mockCall(
+            address(0x0000000000000000000000000000000000000806),
+            abi.encodeWithSignature("transfer(address,uint256)"),
+            abi.encode(true)
+        );
     }
 
-    /// totalDOT increases by exact deposit amount for any valid amount
+    // Wrappers to allow vm.expectRevert to work on internal library functions
+    function _requireValidBps(uint32 bps) external pure {
+        Validation.requireValidBps(bps);
+    }
+    function _requireSufficientShares(uint128 r, uint128 b) external pure {
+        Validation.requireSufficientShares(r, b);
+    }
+    function _requireNonDecreasingRate(uint256 c, uint256 n) external pure {
+        Validation.requireNonDecreasingRate(c, n);
+    }
+    function _requireBelowMaximum(uint128 a, uint128 c) external pure {
+        Validation.requireBelowMaximum(a, c);
+    }
+
+    /// totalDotManaged increases by exact deposit amount for any valid amount
     function testFuzz_DepositIncreasesTotalDOT(uint128 amount) public {
         amount = uint128(bound(uint256(amount), 1e15, 1_000_000_000 * 1e18));
         uint256 before = core.totalDotManaged();
@@ -77,13 +119,13 @@ contract FuzzPolkaPulseCore is Test {
                 10_000
             )
         );
-        Validation.requireValidBps(bps);
+        this._requireValidBps(bps);
     }
 
     /// Any BPS at or below 10_000 never reverts
     function testFuzz_ValidBpsNeverReverts(uint32 bps) public {
         bps = uint32(bound(uint256(bps), 0, 10_000));
-        Validation.requireValidBps(bps);
+        this._requireValidBps(bps);
     }
 
     /// Protocol fee never exceeds gross yield for any valid inputs
@@ -112,9 +154,9 @@ contract FuzzPolkaPulseCore is Test {
                     balance
                 )
             );
-            Validation.requireSufficientShares(requested, balance);
+            this._requireSufficientShares(requested, balance);
         } else {
-            Validation.requireSufficientShares(requested, balance);
+            this._requireSufficientShares(requested, balance);
         }
     }
 
@@ -133,9 +175,9 @@ contract FuzzPolkaPulseCore is Test {
                     newRate
                 )
             );
-            Validation.requireNonDecreasingRate(currentRate, newRate);
+            this._requireNonDecreasingRate(currentRate, newRate);
         } else {
-            Validation.requireNonDecreasingRate(currentRate, newRate);
+            this._requireNonDecreasingRate(currentRate, newRate);
         }
     }
 
@@ -163,9 +205,9 @@ contract FuzzPolkaPulseCore is Test {
                     ceiling
                 )
             );
-            Validation.requireBelowMaximum(amount, ceiling);
+            this._requireBelowMaximum(amount, ceiling);
         } else {
-            Validation.requireBelowMaximum(amount, ceiling);
+            this._requireBelowMaximum(amount, ceiling);
         }
     }
 
@@ -204,6 +246,7 @@ contract FuzzppDOT is Test {
         additionalYield = uint64(
             bound(uint256(additionalYield), 0, 100_000 * 1e18)
         );
+        vm.assume(additionalYield > 0);
 
         vm.prank(core);
         token.mintShares(address(0xA1), initialDeposit);

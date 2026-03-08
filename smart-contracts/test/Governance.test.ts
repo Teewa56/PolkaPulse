@@ -37,50 +37,61 @@ describe("Governance", function () {
 
         it("sets threshold to 2", async function () {
             const { multisig } = await networkHelpers.loadFixture(deployGovernanceFixture);
-            assert.strictEqual(await multisig.read.required(), 2);
+            assert.strictEqual(await multisig.read.required(), 2n);
         });
 
         it("reverts with threshold < 2", async function () {
             const [s1, s2] = await viem.getWalletClients();
-            await viem.assertions.revertWith(
+            const multisig = await viem.deployContract("PolkaPulseMultisig", [
+                [s1!.account!.address, s2!.account!.address, s1!.account!.address], // duplicate
+                2,
+            ]); // This is just to get an instance for ABI
+            await viem.assertions.revertWithCustomError(
                 viem.deployContract("PolkaPulseMultisig", [
                     [s1!.account!.address, s2!.account!.address],
                     1,
                 ]),
-                "Multisig: threshold must be at least 2",
+                multisig,
+                "InvalidRequirement",
             );
         });
 
         it("reverts with threshold > signers.length", async function () {
             const [s1, s2] = await viem.getWalletClients();
-            await viem.assertions.revertWith(
+            const { multisig } = await networkHelpers.loadFixture(deployGovernanceFixture);
+            await viem.assertions.revertWithCustomError(
                 viem.deployContract("PolkaPulseMultisig", [
                     [s1!.account!.address, s2!.account!.address],
                     3,
                 ]),
-                "Multisig: threshold exceeds signers",
+                multisig,
+                "InvalidRequirement",
             );
         });
 
         it("reverts with duplicate signer", async function () {
             const [s1] = await viem.getWalletClients();
-            await viem.assertions.revertWith(
+            const { multisig } = await networkHelpers.loadFixture(deployGovernanceFixture);
+            await viem.assertions.revertWithCustomError(
                 viem.deployContract("PolkaPulseMultisig", [
                     [s1!.account!.address, s1!.account!.address],
                     2,
                 ]),
-                "Multisig: duplicate signer",
+                multisig,
+                "InvalidRequirement",
             );
         });
 
         it("reverts with zero address signer", async function () {
             const [s1] = await viem.getWalletClients();
-            await viem.assertions.revertWith(
+            const { multisig } = await networkHelpers.loadFixture(deployGovernanceFixture);
+            await viem.assertions.revertWithCustomError(
                 viem.deployContract("PolkaPulseMultisig", [
                     [s1!.account!.address, zeroAddress],
                     2,
                 ]),
-                "Validation: zero address not permitted",
+                multisig,
+                "ZeroAddress",
             );
         });
     });
@@ -105,7 +116,7 @@ describe("Governance", function () {
         it("proposer auto-confirms with count = 1", async function () {
             const { multisig, signer1, outsider } = await networkHelpers.loadFixture(deployGovernanceFixture);
             const proposalId = await getProposalId(multisig, signer1!, outsider!.account!.address);
-            assert.strictEqual(await multisig.read.getConfirmationCount([proposalId]), 1);
+            assert.strictEqual(await multisig.read.getConfirmationCount([proposalId]), 1n);
             assert.strictEqual(await multisig.read.confirmed([proposalId, signer1!.account!.address]), true);
         });
 
@@ -113,7 +124,7 @@ describe("Governance", function () {
             const { multisig, signer1, signer2, outsider } = await networkHelpers.loadFixture(deployGovernanceFixture);
             const proposalId = await getProposalId(multisig, signer1!, outsider!.account!.address);
             await multisig.write.confirm([proposalId], { account: signer2!.account });
-            assert.strictEqual(await multisig.read.getConfirmationCount([proposalId]), 2);
+            assert.strictEqual(await multisig.read.getConfirmationCount([proposalId]), 2n);
         });
 
         it("signer cannot confirm twice", async function () {
@@ -141,7 +152,7 @@ describe("Governance", function () {
             const proposalId = await getProposalId(multisig, signer1!, outsider!.account!.address);
             await multisig.write.confirm([proposalId], { account: signer2!.account });
             await multisig.write.revoke([proposalId], { account: signer2!.account });
-            assert.strictEqual(await multisig.read.getConfirmationCount([proposalId]), 1);
+            assert.strictEqual(await multisig.read.getConfirmationCount([proposalId]), 1n);
         });
 
         it("non-signer cannot revoke", async function () {
