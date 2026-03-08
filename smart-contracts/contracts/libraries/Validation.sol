@@ -11,7 +11,6 @@ pragma solidity ^0.8.20;
 ///      in off-chain tooling. Each error carries the invalid value so callers
 ///      can surface it meaningfully in UI and logs.
 library Validation {
-
     // -------------------------------------------------------------------------
     // Custom errors
     // -------------------------------------------------------------------------
@@ -29,15 +28,16 @@ library Validation {
     error ExchangeRateZero();
     error PeriodZero();
     error SlippageExceeded(uint256 expected, uint256 actual);
+    error ExchangeRateDecreased(uint256 current, uint256 provided);
 
     // -------------------------------------------------------------------------
     // Constants
     // -------------------------------------------------------------------------
 
-    uint256 internal constant BPS_MAX         = 10_000;
-    uint256 internal constant PRECISION       = 1e18;
-    uint256 internal constant MIN_DEPOSIT_DOT = 1e15;  // 0.001 DOT minimum deposit
-    uint256 internal constant MAX_FEE_BPS     = 2_000; // 20% absolute fee ceiling
+    uint256 internal constant BPS_MAX = 10_000;
+    uint256 internal constant PRECISION = 1e18;
+    uint256 internal constant MIN_DEPOSIT_DOT = 1e15; // 0.001 DOT minimum deposit
+    uint256 internal constant MAX_FEE_BPS = 2_000; // 20% absolute fee ceiling
 
     // -------------------------------------------------------------------------
     // General guards
@@ -115,7 +115,7 @@ library Validation {
         uint256 actual,
         uint256 slippageBps
     ) internal pure {
-        uint256 minAcceptable = expected - (expected * slippageBps / BPS_MAX);
+        uint256 minAcceptable = expected - ((expected * slippageBps) / BPS_MAX);
         if (actual < minAcceptable) revert SlippageExceeded(expected, actual);
     }
 
@@ -125,7 +125,18 @@ library Validation {
     }
 
     /// @notice Reverts if an amount exceeds a stated maximum.
-    function requireBelowMaximum(uint256 amount, uint256 maximum) internal pure {
+    function requireBelowMaximum(
+        uint256 amount,
+        uint256 maximum
+    ) internal pure {
         if (amount > maximum) revert AmountAboveMaximum(amount, maximum);
+    }
+
+    /// @notice Reverts if new exchange rate is lower than current rate.
+    function requireNonDecreasingRate(
+        uint256 current,
+        uint256 provided
+    ) internal pure {
+        if (provided < current) revert ExchangeRateDecreased(current, provided);
     }
 }
