@@ -17,9 +17,13 @@ describe("CoretimeArbitrage", function () {
             admin!.account!.address,
             owner!.account!.address,
             keeper!.account!.address, // keeper (6th signer)
-            core!.account!.address,   // pauser (3rd signer as placeholder)
+            owner!.account!.address, // pauser (placeholder)
             500, // 5% treasuryBps
         ]);
+
+        const KEEPER_ROLE = await coretime.read.KEEPER_ROLE();
+        await coretime.write.grantRole([KEEPER_ROLE, core!.account!.address], { account: admin!.account });
+        await coretime.write.grantRole([KEEPER_ROLE, admin!.account!.address], { account: admin!.account });
 
         const ONE_DOT = parseUnits("1", 18);
         const TEN_DOT = parseUnits("10", 18);
@@ -231,6 +235,7 @@ describe("CoretimeArbitrage", function () {
         it("reverts if reserve is zero", async function () {
             const { coretime, admin, keeper, HYDRADX_PARA } = await networkHelpers.loadFixture(deployFixture);
             await coretime.write.addPartner([HYDRADX_PARA, 1_200], { account: admin!.account });
+            await network.provider.send("hardhat_mine", ["0x18A00"]); // 100,864 blocks (safe margin)
             await viem.assertions.revertWithCustomError(
                 coretime.write.epochTrigger([0n], { account: keeper!.account }),
                 coretime,
