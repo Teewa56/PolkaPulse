@@ -6,10 +6,6 @@ import { formatUnits } from "viem";
 //
 // Run with:
 //   npx hardhat run scripts/simulate-yield-loop.ts --network localhost
-//
-// Prerequisites:
-//   - Chopsticks running: npx @acala-network/chopsticks --config chopsticks.yml
-//   - Contracts deployed and POLKAPULSE_CORE_ADDRESS set in .env
 
 async function main() {
     const { viem } = await network.connect();

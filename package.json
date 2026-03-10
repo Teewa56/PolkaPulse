@@ -1,0 +1,5 @@
+{
+  "devDependencies": {
+    "@acala-network/chopsticks": "^1.2.7"
+  }
+}

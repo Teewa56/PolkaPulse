@@ -24,6 +24,11 @@ export default defineConfig({
     },
   },
   networks: {
+    localhost: {
+      type: "http",
+      chainType: "l1",
+      url: "http://localhost:8545",
+    },
     polkadotHubTestnet: {
       type: "http",
       chainType: "l1",

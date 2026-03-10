@@ -104,12 +104,17 @@ This uses `scripts/simulate-yield-loop.ts` to run:
 #### 4.1. Start Chopsticks fork
  
 From your project root (or wherever `chopsticks.yml` lives):
-
+for this you might need to downgrade your node version to 20
 ```bash
-npx @acala-network/chopsticks --config chopsticks.yml
+nvm install 20
+nvm use 20
 ```
 
-- Ensure it’s listening on `http://127.0.0.1:8545` (matches `localhost` network in `hardhat.config.ts`).
+```bash
+npx @acala-network/chopsticks xcm --config chopsticks.yml
+```
+
+- Ensure it’s listening on `http://localhost:8545` (matches `localhost` network in `hardhat.config.ts`).
 - `ASSET_HUB_RPC` in `smart-contracts/.env` should point to this URL.
 
 #### 4.2. Deploy contracts to the fork
