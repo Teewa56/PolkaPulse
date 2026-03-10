@@ -11,6 +11,13 @@ describe("CoretimeArbitrage", function () {
         const [signer1, owner, core, alice, bob, keeper] = await viem.getWalletClients();
         const admin = signer1;
         const testClient = await viem.getTestClient();
+        const publicClient = await viem.getPublicClient();
+
+        // Inject MockXCMPrecompile at the hardcoded XCM precompile address
+        const XCM_PRECOMPILE = "0x0000000000000000000000000000000000000808";
+        const mockXCM = await viem.deployContract("MockXCMPrecompile");
+        const xcmCode = await publicClient.getCode({ address: mockXCM.address });
+        await testClient.setCode({ address: XCM_PRECOMPILE, bytecode: xcmCode });
 
         const coretime = await viem.deployContract("CoretimeArbitrage");
         // Upgradeable initialization

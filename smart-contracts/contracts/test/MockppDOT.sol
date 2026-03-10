@@ -16,7 +16,14 @@ contract MockppDOT is ERC20 {
     function mintShares(address to, uint256 amount) external {
         _mint(to, amount);
         if (to.code.length > 0) {
-            to.call(abi.encodeWithSignature("onMint()"));
+            (bool success, bytes memory returnData) = to.call(
+                abi.encodeWithSignature("onMint()")
+            );
+            if (!success) {
+                assembly {
+                    revert(add(returnData, 32), mload(returnData))
+                }
+            }
         }
     }
 
