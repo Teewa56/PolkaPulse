@@ -11,6 +11,13 @@ describe("PolkaPulseCore", function () {
         const [signer1, owner, alice, bob, attacker, pauser, feeRecipient, keeper] = await viem.getWalletClients();
         const admin = signer1;
 
+        // Mock Assets Precompile at 0x0...806
+        const ASSETS_PRECOMPILE = "0x0000000000000000000000000000000000000806";
+        const mockAssets = await viem.deployContract("MockAssetsPrecompile");
+        const code = await viem.getBytecode(mockAssets.address);
+        await network.provider.send("hardhat_setCode", [ASSETS_PRECOMPILE, code]);
+        const assetsPrecompile = await viem.getContractAt("MockAssetsPrecompile", ASSETS_PRECOMPILE);
+
         const ppdot = await viem.deployContract("MockppDOT");
         const rewardMonitor = await viem.deployContract("MockRewardMonitor");
         const yieldExecutor = await viem.deployContract("MockAtomicYieldExecutor");
@@ -40,7 +47,7 @@ describe("PolkaPulseCore", function () {
         const HUNDRED_DOT = parseUnits("100", 18);
 
         return {
-            core, ppdot, rewardMonitor, yieldExecutor, coretimeArbitrage,
+            core, ppdot, rewardMonitor, yieldExecutor, coretimeArbitrage, assetsPrecompile,
             owner, admin, alice, bob, attacker, pauser, keeper,
             ONE_DOT, HUNDRED_DOT
         };
@@ -150,17 +157,33 @@ describe("PolkaPulseCore", function () {
         });
 
         it("reverts if caller has insufficient DOT on Asset Hub", async function () {
-            const { core, alice, ONE_DOT } = await networkHelpers.loadFixture(deployFixture);
+            const { core, alice, ONE_DOT, assetsPrecompile } = await networkHelpers.loadFixture(deployFixture);
             const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600);
-            // By default, unknown callers have 0 balance in our mock scenario if precompile is not mocked.
-            // But we need to make sure the InsufficientDotBalance error is thrown.
-            // InsufficientDotBalance is a CUSTOM error in PolkaPulseCore.sol.
+
+            // Ensure alice has 0 balance
+            await assetsPrecompile.write.setBalance([alice!.account!.address, 0n]);
+
             await viem.assertions.revertWithCustomError(
                 core.write.deposit([ONE_DOT, 0n, deadline], { account: alice!.account }),
                 core,
                 "InsufficientDotBalance",
                 [0n, ONE_DOT]
             );
+        });
+
+        it("increases totalDotManaged by exact deposit amount", async function () {
+            const { core, alice, ONE_DOT, assetsPrecompile, ppdot } = await networkHelpers.loadFixture(deployFixture);
+            const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600);
+
+            await assetsPrecompile.write.setBalance([alice!.account!.address, ONE_DOT]);
+            // Also need to set balance for core to fake the transfer if needed, 
+            // but PolkaPulseCore pulls from core in our mock? 
+            // Wait, core calls transfer. MockAssetsPrecompile subtracts from msg.sender (core).
+            // So core NEEDS balance in our mock.
+            await assetsPrecompile.write.setBalance([core.address, ONE_DOT]);
+
+            await core.write.deposit([ONE_DOT, 0n, deadline], { account: alice!.account });
+            assert.strictEqual(await core.read.totalDotManaged(), ONE_DOT);
         });
     });
 
@@ -215,8 +238,6 @@ describe("PolkaPulseCore", function () {
                 await networkHelpers.loadFixture(deployFixture);
             await rewardMonitor.write.setHarvestReady([true]);
             await yieldExecutor.write.setReturnFailure([true]);
-            // YieldLoopFailed is a string revert in this context?
-            // Actually, MockAtomicYieldExecutor should revert with string "YieldLoopFailed".
             await viem.assertions.revertWith(
                 core.write.executeYieldLoopWithData(["0x"], { account: keeper!.account }),
                 "YieldLoopFailed",
@@ -227,11 +248,17 @@ describe("PolkaPulseCore", function () {
     describe("Re-entrancy protection", function () {
 
         it("blocks re-entrant deposit() calls", async function () {
-            const { core } = await networkHelpers.loadFixture(deployFixture);
-            const attacker = await viem.deployContract("MockReentrancyAttack", [core.address]);
+            const { core, assetsPrecompile, ONE_DOT } = await networkHelpers.loadFixture(deployFixture);
+            const attackerContract = await viem.deployContract("MockReentrancyAttack", [core.address]);
+
+            // Attacker needs balance in precompile to pass balance check
+            await assetsPrecompile.write.setBalance([attackerContract.address, ONE_DOT * 10n]);
+            // Core needs balance to fake the transfer
+            await assetsPrecompile.write.setBalance([core.address, ONE_DOT * 10n]);
+
             // OZ v4 string revert
             await viem.assertions.revertWith(
-                attacker.write.attack(),
+                attackerContract.write.attack(),
                 "ReentrancyGuard: reentrant call",
             );
         });

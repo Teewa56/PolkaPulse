@@ -16,8 +16,8 @@ describe("CoretimeArbitrage", function () {
         await coretime.write.initialize([
             admin!.account!.address,
             owner!.account!.address,
-            core!.account!.address,
-            keeper!.account!.address, // Assign keeper role to 'keeper'
+            keeper!.account!.address, // keeper (6th signer)
+            core!.account!.address,   // pauser (3rd signer as placeholder)
             500, // 5% treasuryBps
         ]);
 

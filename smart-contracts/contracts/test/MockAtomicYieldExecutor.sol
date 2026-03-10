@@ -21,7 +21,7 @@ contract MockAtomicYieldExecutor {
     function executeYieldLoop(
         uint256 /* totalDot */,
         bytes calldata /* optimizerCalldata */
-    ) external view returns (uint256, uint256, uint32) {
+    ) external returns (uint256, uint256, uint32) {
         if (returnFailure) revert("YieldLoopFailed");
         return (0, 0, 0);
     }
