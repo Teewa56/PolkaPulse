@@ -45,18 +45,18 @@ contract PolkaPulseMultisig {
     // -------------------------------------------------------------------------
 
     struct Transaction {
-        address target;     // Call target address
-        uint256 value;      // ETH/DOT value to send
-        bytes   data;       // Encoded calldata
-        bool    executed;   // Execution flag — set BEFORE the call (CEI)
+        address target; // Call target address
+        uint256 value; // ETH/DOT value to send
+        bytes data; // Encoded calldata
+        bool executed; // Execution flag — set BEFORE the call (CEI)
         uint256 confirmations; // Number of owner confirmations
     }
 
     address[] public owners;
-    uint256   public required;           // M in M-of-N
+    uint256 public required; // M in M-of-N
 
-    mapping(address => bool)               public isOwner;
-    mapping(uint256 => Transaction)        public transactions;
+    mapping(address => bool) public isOwner;
+    mapping(uint256 => Transaction) public transactions;
     mapping(uint256 => mapping(address => bool)) public confirmed;
 
     uint256 public txCount;
@@ -87,8 +87,9 @@ contract PolkaPulseMultisig {
     /// @param _owners   Array of owner addresses. No duplicates or zero addresses.
     /// @param _required Number of confirmations required to execute a transaction.
     constructor(address[] memory _owners, uint256 _required) {
-        if (_owners.length == 0) revert InvalidRequirement(0, _required);
-        if (_required == 0 || _required > _owners.length)
+        if (_owners.length < 2)
+            revert InvalidRequirement(_owners.length, _required);
+        if (_required < 2 || _required > _owners.length)
             revert InvalidRequirement(_owners.length, _required);
 
         for (uint256 i = 0; i < _owners.length; i++) {
@@ -126,15 +127,18 @@ contract PolkaPulseMultisig {
 
         txId = txCount;
         transactions[txId] = Transaction({
-            target:        target,
-            value:         value,
-            data:          data,
-            executed:      false,
-            confirmations: 0
+            target: target,
+            value: value,
+            data: data,
+            executed: false,
+            confirmations: 1 // Proposer auto-confirms
         });
         txCount++;
 
+        confirmed[txId][msg.sender] = true;
+
         emit Events.MultisigTxProposed(txId, msg.sender, target, value, data);
+        emit Events.MultisigTxConfirmed(txId, msg.sender);
     }
 
     // -------------------------------------------------------------------------
@@ -143,12 +147,9 @@ contract PolkaPulseMultisig {
 
     /// @notice Confirm a pending transaction. Each owner can confirm once.
     /// @param txId  Transaction ID to confirm.
-    function confirm(uint256 txId)
-        external
-        onlyOwner
-        txExists(txId)
-        notExecuted(txId)
-    {
+    function confirm(
+        uint256 txId
+    ) external onlyOwner txExists(txId) notExecuted(txId) {
         if (confirmed[txId][msg.sender])
             revert TxAlreadyConfirmed(txId, msg.sender);
 
@@ -164,12 +165,9 @@ contract PolkaPulseMultisig {
 
     /// @notice Revoke a previously given confirmation.
     /// @param txId  Transaction ID to revoke confirmation for.
-    function revoke(uint256 txId)
-        external
-        onlyOwner
-        txExists(txId)
-        notExecuted(txId)
-    {
+    function revoke(
+        uint256 txId
+    ) external onlyOwner txExists(txId) notExecuted(txId) {
         if (!confirmed[txId][msg.sender])
             revert TxNotConfirmed(txId, msg.sender);
 
@@ -193,12 +191,9 @@ contract PolkaPulseMultisig {
     ///         executing the same transaction twice.
     ///
     /// @param txId  Transaction ID to execute.
-    function execute(uint256 txId)
-        external
-        onlyOwner
-        txExists(txId)
-        notExecuted(txId)
-    {
+    function execute(
+        uint256 txId
+    ) external onlyOwner txExists(txId) notExecuted(txId) {
         Transaction storage txn = transactions[txId];
 
         if (txn.confirmations < required)
@@ -229,20 +224,17 @@ contract PolkaPulseMultisig {
     }
 
     /// @notice Returns the confirmation count for a transaction.
-    function getConfirmationCount(uint256 txId)
-        external
-        view
-        returns (uint256)
-    {
+    function getConfirmationCount(
+        uint256 txId
+    ) external view returns (uint256) {
         return transactions[txId].confirmations;
     }
 
     /// @notice Returns whether a specific owner has confirmed a transaction.
-    function isConfirmed(uint256 txId, address owner)
-        external
-        view
-        returns (bool)
-    {
+    function isConfirmed(
+        uint256 txId,
+        address owner
+    ) external view returns (bool) {
         return confirmed[txId][owner];
     }
 }

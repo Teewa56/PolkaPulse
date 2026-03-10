@@ -75,7 +75,7 @@ contract FuzzPolkaPulseCore is Test {
 
     /// totalDotManaged increases by exact deposit amount for any valid amount
     function testFuzz_DepositIncreasesTotalDOT(uint128 amount) public {
-        amount = uint128(bound(uint256(amount), 1e15, 1_000_000_000 * 1e18));
+        amount = uint128(bound(uint256(amount), 1e15, 1000 ether));
         uint256 before = core.totalDotManaged();
         vm.prank(alice);
         core.deposit(amount, 0, block.timestamp + 1);

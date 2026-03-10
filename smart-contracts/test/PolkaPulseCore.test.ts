@@ -62,7 +62,8 @@ describe("PolkaPulseCore", function () {
         it("reverts if initialize() is called a second time", async function () {
             const { core, admin, ppdot, rewardMonitor, yieldExecutor, coretimeArbitrage, owner } =
                 await networkHelpers.loadFixture(deployFixture);
-            await viem.assertions.revertWithCustomError(
+            // OZ v4 string revert
+            await viem.assertions.revertWith(
                 core.write.initialize([
                     admin!.account!.address,
                     owner!.account!.address,
@@ -76,8 +77,7 @@ describe("PolkaPulseCore", function () {
                     200,
                     admin!.account!.address,
                 ]),
-                core,
-                "AlreadyInitialized",
+                "Initializable: contract is already initialized",
             );
         });
 
@@ -142,16 +142,19 @@ describe("PolkaPulseCore", function () {
             const { core, pauser, alice, ONE_DOT } = await networkHelpers.loadFixture(deployFixture);
             const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600);
             await core.write.pause(["Emergency"], { account: pauser!.account });
-            await viem.assertions.revertWithCustomError(
+            // OZ v4 string revert
+            await viem.assertions.revertWith(
                 core.write.deposit([ONE_DOT, 0n, deadline], { account: alice!.account }),
-                core,
-                "EnforcedPause",
+                "Pausable: paused",
             );
         });
 
         it("reverts if caller has insufficient DOT on Asset Hub", async function () {
             const { core, alice, ONE_DOT } = await networkHelpers.loadFixture(deployFixture);
             const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600);
+            // By default, unknown callers have 0 balance in our mock scenario if precompile is not mocked.
+            // But we need to make sure the InsufficientDotBalance error is thrown.
+            // InsufficientDotBalance is a CUSTOM error in PolkaPulseCore.sol.
             await viem.assertions.revertWithCustomError(
                 core.write.deposit([ONE_DOT, 0n, deadline], { account: alice!.account }),
                 core,
@@ -177,10 +180,10 @@ describe("PolkaPulseCore", function () {
             const { core, pauser, alice, ONE_DOT } = await networkHelpers.loadFixture(deployFixture);
             const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600);
             await core.write.pause(["Emergency"], { account: pauser!.account });
-            await viem.assertions.revertWithCustomError(
+            // OZ v4 string revert
+            await viem.assertions.revertWith(
                 core.write.withdraw([ONE_DOT, 0n, deadline], { account: alice!.account }),
-                core,
-                "EnforcedPause",
+                "Pausable: paused",
             );
         });
     });
@@ -190,10 +193,10 @@ describe("PolkaPulseCore", function () {
         it("reverts when paused", async function () {
             const { core, pauser, keeper } = await networkHelpers.loadFixture(deployFixture);
             await core.write.pause(["Emergency"], { account: pauser!.account });
-            await viem.assertions.revertWithCustomError(
+            // OZ v4 string revert
+            await viem.assertions.revertWith(
                 core.write.executeYieldLoopWithData(["0x"], { account: keeper!.account }),
-                core,
-                "EnforcedPause",
+                "Pausable: paused",
             );
         });
 
@@ -208,12 +211,12 @@ describe("PolkaPulseCore", function () {
         });
 
         it("reverts if optimizer returns failure", async function () {
-            const { core, rewardMonitor, yieldExecutor, keeper, alice, ONE_DOT } =
+            const { core, rewardMonitor, yieldExecutor, keeper } =
                 await networkHelpers.loadFixture(deployFixture);
-            const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600);
-            // We can't easily test the success path due to precompile, but failure path is reachable.
             await rewardMonitor.write.setHarvestReady([true]);
             await yieldExecutor.write.setReturnFailure([true]);
+            // YieldLoopFailed is a string revert in this context?
+            // Actually, MockAtomicYieldExecutor should revert with string "YieldLoopFailed".
             await viem.assertions.revertWith(
                 core.write.executeYieldLoopWithData(["0x"], { account: keeper!.account }),
                 "YieldLoopFailed",
@@ -226,10 +229,10 @@ describe("PolkaPulseCore", function () {
         it("blocks re-entrant deposit() calls", async function () {
             const { core } = await networkHelpers.loadFixture(deployFixture);
             const attacker = await viem.deployContract("MockReentrancyAttack", [core.address]);
-            await viem.assertions.revertWithCustomError(
+            // OZ v4 string revert
+            await viem.assertions.revertWith(
                 attacker.write.attack(),
-                core,
-                "ReentrancyGuardReentrantCall",
+                "ReentrancyGuard: reentrant call",
             );
         });
     });
@@ -239,11 +242,10 @@ describe("PolkaPulseCore", function () {
         it("non-pauser cannot pause", async function () {
             const { core, alice } = await networkHelpers.loadFixture(deployFixture);
             const PAUSER_ROLE = await core.read.PAUSER_ROLE();
-            await viem.assertions.revertWithCustomError(
+            // OZ v4 string revert: "AccessControl: account ... is missing role ..."
+            await viem.assertions.revertWith(
                 core.write.pause(["Emergency"], { account: alice!.account }),
-                core,
-                "AccessControlUnauthorizedAccount",
-                [getAddress(alice!.account!.address), PAUSER_ROLE]
+                `AccessControl: account ${alice!.account!.address.toLowerCase()} is missing role ${PAUSER_ROLE}`
             );
         });
 
@@ -251,33 +253,27 @@ describe("PolkaPulseCore", function () {
             const { core, pauser, alice } = await networkHelpers.loadFixture(deployFixture);
             const ADMIN_ROLE = await core.read.ADMIN_ROLE();
             await core.write.pause(["Emergency"], { account: pauser!.account });
-            await viem.assertions.revertWithCustomError(
+            await viem.assertions.revertWith(
                 core.write.unpause({ account: alice!.account }),
-                core,
-                "AccessControlUnauthorizedAccount",
-                [getAddress(alice!.account!.address), ADMIN_ROLE]
+                `AccessControl: account ${alice!.account!.address.toLowerCase()} is missing role ${ADMIN_ROLE}`
             );
         });
 
         it("non-admin cannot setHarvestThreshold", async function () {
             const { core, alice } = await networkHelpers.loadFixture(deployFixture);
             const ADMIN_ROLE = await core.read.ADMIN_ROLE();
-            await viem.assertions.revertWithCustomError(
+            await viem.assertions.revertWith(
                 core.write.setHarvestThreshold([1000n], { account: alice!.account }),
-                core,
-                "AccessControlUnauthorizedAccount",
-                [getAddress(alice!.account!.address), ADMIN_ROLE]
+                `AccessControl: account ${alice!.account!.address.toLowerCase()} is missing role ${ADMIN_ROLE}`
             );
         });
 
         it("non-admin cannot setProtocolFeeBps", async function () {
             const { core, alice } = await networkHelpers.loadFixture(deployFixture);
             const ADMIN_ROLE = await core.read.ADMIN_ROLE();
-            await viem.assertions.revertWithCustomError(
+            await viem.assertions.revertWith(
                 core.write.setProtocolFeeBps([300], { account: alice!.account }),
-                core,
-                "AccessControlUnauthorizedAccount",
-                [getAddress(alice!.account!.address), ADMIN_ROLE]
+                `AccessControl: account ${alice!.account!.address.toLowerCase()} is missing role ${ADMIN_ROLE}`
             );
         });
 

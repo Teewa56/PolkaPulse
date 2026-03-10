@@ -54,12 +54,12 @@ describe("Governance", function () {
         });
 
         it("reverts with threshold > signers.length", async function () {
-            const [s1, s2] = await viem.getWalletClients();
+            const [s1, s2, s3] = await viem.getWalletClients();
             const { multisig } = await networkHelpers.loadFixture(deployGovernanceFixture);
             await viem.assertions.revertWithCustomError(
                 viem.deployContract("PolkaPulseMultisig", [
-                    [s1!.account!.address, s2!.account!.address],
-                    3,
+                    [s1!.account!.address, s2!.account!.address, s3!.account!.address],
+                    4,
                 ]),
                 multisig,
                 "InvalidRequirement",
@@ -95,7 +95,7 @@ describe("Governance", function () {
 
     describe("PolkaPulseMultisig Proposal Lifecycle", function () {
 
-        async function getProposalId(multisig: Awaited<ReturnType<typeof viem.deployContract>>, signer: { account: { address: `0x${string}` } }, target: string) {
+        async function getProposalId(multisig: any, signer: any, target: string) {
             const countBefore = await multisig.read.txCount();
             await multisig.write.propose([target as `0x${string}`, 0n, "0x1234" as `0x${string}`], { account: signer.account });
             return countBefore;
