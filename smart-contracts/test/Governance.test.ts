@@ -42,10 +42,7 @@ describe("Governance", function () {
 
         it("reverts with threshold < 2", async function () {
             const [s1, s2] = await viem.getWalletClients();
-            const multisig = await viem.deployContract("PolkaPulseMultisig", [
-                [s1!.account!.address, s2!.account!.address, s1!.account!.address], // duplicate
-                2,
-            ]); // This is just to get an instance for ABI
+            const { multisig } = await networkHelpers.loadFixture(deployGovernanceFixture);
             await viem.assertions.revertWithCustomError(
                 viem.deployContract("PolkaPulseMultisig", [
                     [s1!.account!.address, s2!.account!.address],
@@ -70,11 +67,11 @@ describe("Governance", function () {
         });
 
         it("reverts with duplicate signer", async function () {
-            const [s1] = await viem.getWalletClients();
+            const [s1, s2] = await viem.getWalletClients();
             const { multisig } = await networkHelpers.loadFixture(deployGovernanceFixture);
             await viem.assertions.revertWithCustomError(
                 viem.deployContract("PolkaPulseMultisig", [
-                    [s1!.account!.address, s1!.account!.address],
+                    [s1!.account!.address, s2!.account!.address, s1!.account!.address],
                     2,
                 ]),
                 multisig,

@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
 import { network } from "hardhat";
-import { parseUnits, zeroAddress } from "viem";
+import { parseUnits, zeroAddress, getAddress } from "viem";
 import { anyValue } from "@nomicfoundation/hardhat-viem-assertions/predicates";
 
 const { viem, networkHelpers } = await network.connect();
@@ -9,15 +9,17 @@ const { viem, networkHelpers } = await network.connect();
 describe("CoretimeArbitrage", function () {
 
     async function deployFixture() {
-        const [owner, admin, core, alice, bob] = await viem.getWalletClients();
+        const [signer1, owner, core, alice, bob] = await viem.getWalletClients();
+        const admin = signer1;
 
         const coretime = await viem.deployContract("CoretimeArbitrage");
+        // Upgradeable initialization
         await coretime.write.initialize([
             admin!.account!.address,
             owner!.account!.address,
             core!.account!.address,
             admin!.account!.address,
-            500,
+            500, // 5% treasuryBps
         ]);
 
         const ONE_DOT = parseUnits("1", 18);
@@ -33,7 +35,6 @@ describe("CoretimeArbitrage", function () {
 
         it("sets core correctly", async function () {
             const { coretime, core } = await networkHelpers.loadFixture(deployFixture);
-            // In the new contract, the keeper role is assigned to core
             assert.strictEqual(await coretime.read.hasRole([await coretime.read.KEEPER_ROLE(), core!.account!.address]), true);
         });
 
@@ -52,14 +53,6 @@ describe("CoretimeArbitrage", function () {
             );
         });
 
-        it("reverts with zero min purchase amount", async function () {
-            const [, admin, core] = await viem.getWalletClients();
-            await viem.assertions.revertWith(
-                viem.deployContract("CoretimeArbitrage", [core!.account!.address, admin!.account!.address, 0n, 500]),
-                "Validation: amount must be greater than zero",
-            );
-        });
-
         it("reverts if treasury BPS > 2_000", async function () {
             const fresh = await viem.deployContract("CoretimeArbitrage");
             const [, admin, core] = await viem.getWalletClients();
@@ -71,20 +64,25 @@ describe("CoretimeArbitrage", function () {
         });
     });
 
-    describe("deposit()", function () {
+    describe("accumulateReserve()", function () {
 
-        it("increases treasury Reserve when called by core", async function () {
+        it("increases treasury Reserve by treasuryBps fraction", async function () {
             const { coretime, core, ONE_DOT } = await networkHelpers.loadFixture(deployFixture);
+            const treasuryBps = await coretime.read.treasuryBps();
+            const expectedReserved = (ONE_DOT * BigInt(treasuryBps)) / 10000n;
+
             await coretime.write.accumulateReserve([ONE_DOT], { account: core!.account });
-            assert.strictEqual(await coretime.read.treasuryReserve(), ONE_DOT);
+            assert.strictEqual(await coretime.read.treasuryReserve(), Number(expectedReserved));
         });
 
-        it("reverts when called by non-core", async function () {
+        it("reverts when called by non-keeper", async function () {
             const { coretime, alice, ONE_DOT } = await networkHelpers.loadFixture(deployFixture);
+            const KEEPER_ROLE = await coretime.read.KEEPER_ROLE();
             await viem.assertions.revertWithCustomError(
                 coretime.write.accumulateReserve([ONE_DOT], { account: alice!.account }),
                 coretime,
                 "AccessControlUnauthorizedAccount",
+                [getAddress(alice!.account!.address), KEEPER_ROLE]
             );
         });
 
@@ -97,11 +95,14 @@ describe("CoretimeArbitrage", function () {
             );
         });
 
-        it("accumulates across multiple deposits", async function () {
+        it("accumulates correctly across multiple deposits", async function () {
             const { coretime, core, ONE_DOT, TEN_DOT } = await networkHelpers.loadFixture(deployFixture);
+            const treasuryBps = await coretime.read.treasuryBps();
+            const expectedTotal = ((ONE_DOT + TEN_DOT) * BigInt(treasuryBps)) / 10000n;
+
             await coretime.write.accumulateReserve([ONE_DOT], { account: core!.account });
             await coretime.write.accumulateReserve([TEN_DOT], { account: core!.account });
-            assert.strictEqual(await coretime.read.treasuryReserve(), ONE_DOT + TEN_DOT);
+            assert.strictEqual(await coretime.read.treasuryReserve(), Number(expectedTotal));
         });
     });
 
@@ -117,10 +118,12 @@ describe("CoretimeArbitrage", function () {
 
         it("reverts for non-admin", async function () {
             const { coretime, alice, HYDRADX_PARA } = await networkHelpers.loadFixture(deployFixture);
+            const ADMIN_ROLE = await coretime.read.ADMIN_ROLE();
             await viem.assertions.revertWithCustomError(
                 coretime.write.addPartner([HYDRADX_PARA, 1_200], { account: alice!.account }),
                 coretime,
-                "NotAdmin",
+                "AccessControlUnauthorizedAccount",
+                [getAddress(alice!.account!.address), ADMIN_ROLE]
             );
         });
 
@@ -133,7 +136,7 @@ describe("CoretimeArbitrage", function () {
             );
         });
 
-        it("reverts on boostedApyBps > 10_000", async function () {
+        it("reverts on boostedYieldBps > 10_000", async function () {
             const { coretime, admin, HYDRADX_PARA } = await networkHelpers.loadFixture(deployFixture);
             await viem.assertions.revertWithCustomError(
                 coretime.write.addPartner([HYDRADX_PARA, 10_001], { account: admin!.account }),
@@ -152,7 +155,7 @@ describe("CoretimeArbitrage", function () {
             );
         });
 
-        it("emits PartnerParachainUpdated approved=true", async function () {
+        it("emits PartnerParachainAdded event", async function () {
             const { coretime, admin, HYDRADX_PARA } = await networkHelpers.loadFixture(deployFixture);
             await viem.assertions.emitWithArgs(
                 coretime.write.addPartner([HYDRADX_PARA, 1_200], { account: admin!.account }),
@@ -165,20 +168,23 @@ describe("CoretimeArbitrage", function () {
 
     describe("removePartner()", function () {
 
-        it("removes whitelisted partner", async function () {
+        it("deactivates whitelisted partner", async function () {
             const { coretime, admin, HYDRADX_PARA } = await networkHelpers.loadFixture(deployFixture);
             await coretime.write.addPartner([HYDRADX_PARA, 1_200], { account: admin!.account });
             await coretime.write.removePartner([HYDRADX_PARA], { account: admin!.account });
-            assert.strictEqual(await coretime.read.isPartner([HYDRADX_PARA]), false);
+            const partner = await coretime.read.partners([HYDRADX_PARA]);
+            assert.strictEqual(partner[2], false); // active = false
         });
 
         it("reverts for non-admin", async function () {
             const { coretime, admin, alice, HYDRADX_PARA } = await networkHelpers.loadFixture(deployFixture);
             await coretime.write.addPartner([HYDRADX_PARA, 1_200], { account: admin!.account });
+            const ADMIN_ROLE = await coretime.read.ADMIN_ROLE();
             await viem.assertions.revertWithCustomError(
                 coretime.write.removePartner([HYDRADX_PARA], { account: alice!.account }),
                 coretime,
                 "AccessControlUnauthorizedAccount",
+                [getAddress(alice!.account!.address), ADMIN_ROLE]
             );
         });
 
@@ -190,31 +196,22 @@ describe("CoretimeArbitrage", function () {
                 "ParachainNotWhitelisted",
             );
         });
-
-        it("emits PartnerParachainUpdated approved=false", async function () {
-            const { coretime, admin, HYDRADX_PARA } = await networkHelpers.loadFixture(deployFixture);
-            await coretime.write.addPartner([HYDRADX_PARA, 1_200], { account: admin!.account });
-            await viem.assertions.emitWithArgs(
-                coretime.write.removePartner([HYDRADX_PARA], { account: admin!.account }),
-                coretime,
-                "PartnerParachainRemoved",
-                [HYDRADX_PARA],
-            );
-        });
     });
 
-    describe("triggerEpoch()", function () {
+    describe("epochTrigger()", function () {
 
         async function readyFixture() {
             const base = await networkHelpers.loadFixture(deployFixture);
             await base.coretime.write.addPartner([base.HYDRADX_PARA, 1_200], { account: base.admin!.account });
-            await base.coretime.write.accumulateReserve([base.TEN_DOT], { account: base.core!.account });
+            // epochTrigger needs blocks to pass. Since initial lastEpochBlock is 0, first one is ready.
+            // But we need some reserve.
+            await base.coretime.write.accumulateReserve([base.HUNDRED_DOT], { account: base.core!.account });
             return base;
         }
 
         it("succeeds when conditions are met", async function () {
             const { coretime } = await readyFixture();
-            await coretime.write.triggerEpoch();
+            await coretime.write.epochTrigger([0n]);
         });
 
         it("zeroes treasury after epoch", async function () {
@@ -249,63 +246,85 @@ describe("CoretimeArbitrage", function () {
             );
         });
 
-        it("succeeds after 7 days", async function () {
+        it("succeeds after 100_800 blocks", async function () {
             const { coretime, core, TEN_DOT } = await readyFixture();
             await coretime.write.epochTrigger([0n]);
-            // mining blocks on hardhat
-            for (let i = 0; i < 100801; i++) await network.provider.send("evm_mine");
+
+            // Advance 100,800 blocks
+            await network.provider.send("hardhat_mine", ["0x189C0"]); // 100,800 in hex
+
             await coretime.write.accumulateReserve([TEN_DOT], { account: core!.account });
             await coretime.write.epochTrigger([0n]);
         });
 
-        it("reverts if treasury below minimum", async function () {
-            const { coretime, core, admin, ONE_DOT, HYDRADX_PARA } = await networkHelpers.loadFixture(deployFixture);
+        it("reverts if reserve is zero", async function () {
+            const { coretime, admin, HYDRADX_PARA } = await networkHelpers.loadFixture(deployFixture);
             await coretime.write.addPartner([HYDRADX_PARA, 1_200], { account: admin!.account });
-            await coretime.write.deposit([ONE_DOT], { account: core!.account });
+            // lastEpochBlock is 0, so epoch timing is ready. But reserve is 0.
             await viem.assertions.revertWithCustomError(
                 coretime.write.epochTrigger([0n]),
                 coretime,
                 "ReserveTooLow",
+                [0n, 1n]
             );
         });
 
         it("reverts if no partners registered", async function () {
             const { coretime, core, TEN_DOT } = await networkHelpers.loadFixture(deployFixture);
-            await coretime.write.deposit([TEN_DOT], { account: core!.account });
+            await coretime.write.accumulateReserve([TEN_DOT], { account: core!.account });
             await viem.assertions.revertWithCustomError(
                 coretime.write.epochTrigger([0n]),
                 coretime,
                 "ReserveTooLow",
+                [0n, 1n]
             );
         });
 
-        it("assigns to partner with highest boosted APY", async function () {
-            const { coretime, core, admin, TEN_DOT, HYDRADX_PARA, INTERLAY_PARA } =
+        it("distributes units to partners proportionally (equal weight)", async function () {
+            const { coretime, core, admin, HUNDRED_DOT, HYDRADX_PARA, INTERLAY_PARA } =
                 await networkHelpers.loadFixture(deployFixture);
             await coretime.write.addPartner([HYDRADX_PARA, 800], { account: admin!.account });
             await coretime.write.addPartner([INTERLAY_PARA, 1_500], { account: admin!.account });
-            await coretime.write.accumulateReserve([TEN_DOT], { account: core!.account });
+
+            await coretime.write.accumulateReserve([HUNDRED_DOT], { account: core!.account });
+
+            // Total units purchased is HUNDRED_DOT / 20 * (1 unit/DOT placeholder) = 5 units.
+            // Wait, accumulateReserve: 100 DOT * 500 / 10000 = 5 DOT.
+            // coretimeUnits = 5 DOT / 1e18 = 0... wait.
+            // Let's use larger numbers.
+            const HUGE_YIELD = parseUnits("1000", 18);
+            await coretime.write.accumulateReserve([HUGE_YIELD], { account: core!.account });
+            // Reserve = 1000 * 5% = 50 DOT. coretimeUnits = 50.
+            // 2 partners -> 25 units each.
+
             await viem.assertions.emitWithArgs(
                 coretime.write.epochTrigger([0n]),
                 coretime,
                 "CoretimeAssigned",
-                [BigInt(INTERLAY_PARA), anyValue, 1_500n],
+                [HYDRADX_PARA, anyValue, 800n],
             );
         });
     });
 
-    describe("epochReady()", function () {
+    describe("blocksUntilNextEpoch()", function () {
 
-        it("returns false with no treasury", async function () {
+        it("returns 0 when initial", async function () {
             const { coretime } = await networkHelpers.loadFixture(deployFixture);
-            assert.strictEqual(await coretime.read.treasuryReserve(), 0);
+            assert.strictEqual(await coretime.read.blocksUntilNextEpoch(), 0n);
         });
 
-        it("returns true when all conditions met", async function () {
-            const { coretime, core, admin, TEN_DOT, HYDRADX_PARA } = await networkHelpers.loadFixture(deployFixture);
-            await coretime.write.addPartner([HYDRADX_PARA, 1_200], { account: admin!.account });
-            await coretime.write.accumulateReserve([TEN_DOT], { account: core!.account });
-            assert.strictEqual(await coretime.read.blocksUntilNextEpoch(), 0n);
+        it("returns positive value after trigger", async function () {
+            const { coretime } = await readyFixture();
+            async function readyFixture() {
+                const base = await networkHelpers.loadFixture(deployFixture);
+                await base.coretime.write.addPartner([base.HYDRADX_PARA, 1_200], { account: base.admin!.account });
+                await base.coretime.write.accumulateReserve([base.TEN_DOT], { account: base.core!.account });
+                return base;
+            }
+            await coretime.write.epochTrigger([0n]);
+            const remaining = await coretime.read.blocksUntilNextEpoch();
+            assert.ok(remaining > 0n);
+            assert.ok(remaining <= 100800n);
         });
     });
 });

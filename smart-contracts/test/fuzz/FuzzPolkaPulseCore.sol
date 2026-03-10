@@ -44,28 +44,14 @@ contract FuzzPolkaPulseCore is Test {
         // Grant MINTER_ROLE to core on token
         token.grantRole(token.MINTER_ROLE(), address(core));
 
-        // Mock IAssetsPrecompile.balance at 0x...806
+        // Mock IAssetsPrecompile.balanceOf at 0x...806
         vm.mockCall(
             address(0x0000000000000000000000000000000000000806),
-            abi.encodeWithSignature(
-                "balance(uint256,address)",
-                0,
-                address(core)
-            ),
+            abi.encodeWithSignature("balanceOf(address)"),
             abi.encode(1000 ether)
         );
 
         // Mock IAssetsPrecompile.transfer at 0x...806
-        vm.mockCall(
-            address(0x0000000000000000000000000000000000000806),
-            abi.encodeWithSignature(
-                "transfer(address,uint256)",
-                address(this),
-                1e15
-            ),
-            abi.encode(true)
-        );
-        // Wildcard mock for any transfer from core
         vm.mockCall(
             address(0x0000000000000000000000000000000000000806),
             abi.encodeWithSignature("transfer(address,uint256)"),
