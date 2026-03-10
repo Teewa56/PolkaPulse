@@ -235,10 +235,12 @@ describe("PolkaPulseCore", function () {
         });
 
         it("reverts if optimizer returns failure", async function () {
-            const { core, rewardMonitor, yieldExecutor, keeper } =
+            const { core, rewardMonitor, yieldExecutor, keeper, assetsPrecompile, ONE_DOT } =
                 await networkHelpers.loadFixture(deployFixture);
             await rewardMonitor.write.setHarvestReady([true]);
             await yieldExecutor.write.setReturnFailure([true]);
+            // Give core sufficient balance so the fee transfer doesn't revert before optimizer is called
+            await assetsPrecompile.write.setBalance([core.address, ONE_DOT]);
             await viem.assertions.revertWith(
                 core.write.executeYieldLoopWithData(["0x"], { account: keeper!.account }),
                 "YieldLoopFailed",
@@ -256,6 +258,9 @@ describe("PolkaPulseCore", function () {
             await assetsPrecompile.write.setBalance([attackerContract.address, ONE_DOT * 10n]);
             // Core needs balance to fake the transfer
             await assetsPrecompile.write.setBalance([core.address, ONE_DOT * 10n]);
+
+            // Register the attacker as the transfer callback so it re-enters during deposit's transfer call
+            await attackerContract.write.registerCallback([assetsPrecompile.address]);
 
             // OZ v4 string revert
             await viem.assertions.revertWith(

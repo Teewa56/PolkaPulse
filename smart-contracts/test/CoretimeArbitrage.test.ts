@@ -191,6 +191,8 @@ describe("CoretimeArbitrage", function () {
             const base = await networkHelpers.loadFixture(deployFixture);
             await base.coretime.write.addPartner([base.HYDRADX_PARA, 1_200], { account: base.admin!.account });
             await base.coretime.write.accumulateReserve([base.HUNDRED_DOT], { account: base.core!.account });
+            // Mine 100,800 blocks so epochTrigger doesn't revert with EpochNotReady
+            await network.provider.send("hardhat_mine", ["0x18900"]);
             return base;
         }
 
@@ -257,6 +259,9 @@ describe("CoretimeArbitrage", function () {
             const { coretime, keeper } = await networkHelpers.loadFixture(deployFixture);
             await coretime.write.addPartner([2034, 1200], { account: (await viem.getWalletClients())[0]!.account });
             await coretime.write.accumulateReserve([parseUnits("10", 18)], { account: (await viem.getWalletClients())[2]!.account });
+
+            // Mine 100,800 blocks so epochTrigger doesn't revert with EpochNotReady
+            await network.provider.send("hardhat_mine", ["0x18900"]);
 
             await coretime.write.epochTrigger([0n], { account: keeper!.account });
             const remaining = await coretime.read.blocksUntilNextEpoch();
