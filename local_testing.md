@@ -16,7 +16,7 @@
 ### 2. Environment setup
 
 #### 2.1. Smart contracts (`smart-contracts/`)
-
+NB: If you encounter any errors during installation use --legacy-peer-deps flag
 1. Go to the contracts folder and install deps:
 
    ```bash
