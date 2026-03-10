@@ -10,6 +10,7 @@ describe("CoretimeArbitrage", function () {
     async function deployFixture() {
         const [signer1, owner, core, alice, bob, keeper] = await viem.getWalletClients();
         const admin = signer1;
+        const testClient = await viem.getTestClient();
 
         const coretime = await viem.deployContract("CoretimeArbitrage");
         // Upgradeable initialization
@@ -31,7 +32,7 @@ describe("CoretimeArbitrage", function () {
         const HYDRADX_PARA = 2034;
         const INTERLAY_PARA = 2032;
 
-        return { coretime, owner, admin, core, alice, bob, keeper, ONE_DOT, TEN_DOT, HUNDRED_DOT, HYDRADX_PARA, INTERLAY_PARA };
+        return { coretime, owner, admin, core, alice, bob, keeper, ONE_DOT, TEN_DOT, HUNDRED_DOT, HYDRADX_PARA, INTERLAY_PARA, testClient };
     }
 
     describe("Deployment", function () {
@@ -192,7 +193,7 @@ describe("CoretimeArbitrage", function () {
             await base.coretime.write.addPartner([base.HYDRADX_PARA, 1_200], { account: base.admin!.account });
             await base.coretime.write.accumulateReserve([base.HUNDRED_DOT], { account: base.core!.account });
             // Mine 100,800 blocks so epochTrigger doesn't revert with EpochNotReady
-            await network.provider.send("hardhat_mine", ["0x18900"]);
+            await base.testClient.mine({ blocks: 100800 });
             return base;
         }
 
@@ -225,19 +226,19 @@ describe("CoretimeArbitrage", function () {
         });
 
         it("succeeds after 100_800 blocks", async function () {
-            const { coretime, core, keeper, TEN_DOT } = await readyFixture();
+            const { coretime, core, keeper, TEN_DOT, testClient } = await readyFixture();
             await coretime.write.epochTrigger([0n], { account: keeper!.account });
 
-            await network.provider.send("hardhat_mine", ["0x189C0"]);
+            await testClient.mine({ blocks: 100800 });
 
             await coretime.write.accumulateReserve([TEN_DOT], { account: core!.account });
             await coretime.write.epochTrigger([0n], { account: keeper!.account });
         });
 
         it("reverts if reserve is zero", async function () {
-            const { coretime, admin, keeper, HYDRADX_PARA } = await networkHelpers.loadFixture(deployFixture);
+            const { coretime, admin, keeper, HYDRADX_PARA, testClient } = await networkHelpers.loadFixture(deployFixture);
             await coretime.write.addPartner([HYDRADX_PARA, 1_200], { account: admin!.account });
-            await network.provider.send("hardhat_mine", ["0x18A00"]); // 100,864 blocks (safe margin)
+            await testClient.mine({ blocks: 100800 });
             await viem.assertions.revertWithCustomError(
                 coretime.write.epochTrigger([0n], { account: keeper!.account }),
                 coretime,
@@ -256,12 +257,12 @@ describe("CoretimeArbitrage", function () {
         });
 
         it("returns positive value after trigger", async function () {
-            const { coretime, keeper } = await networkHelpers.loadFixture(deployFixture);
+            const { coretime, keeper, testClient } = await networkHelpers.loadFixture(deployFixture);
             await coretime.write.addPartner([2034, 1200], { account: (await viem.getWalletClients())[0]!.account });
             await coretime.write.accumulateReserve([parseUnits("10", 18)], { account: (await viem.getWalletClients())[2]!.account });
 
             // Mine 100,800 blocks so epochTrigger doesn't revert with EpochNotReady
-            await network.provider.send("hardhat_mine", ["0x18900"]);
+            await testClient.mine({ blocks: 100800 });
 
             await coretime.write.epochTrigger([0n], { account: keeper!.account });
             const remaining = await coretime.read.blocksUntilNextEpoch();

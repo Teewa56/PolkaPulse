@@ -9,31 +9,12 @@ interface ICore {
     ) external returns (uint256);
 }
 
-interface ITransferCallback {
-    function onTransferCallback(
-        address from,
-        address to,
-        uint256 amount
-    ) external;
-}
-
-interface IMockAssetsPrecompile {
-    function setTransferCallback(address callback) external;
-}
-
-contract MockReentrancyAttack is ITransferCallback {
+contract MockReentrancyAttack {
     ICore public core;
     bool private attacking;
 
     constructor(address _core) {
         core = ICore(_core);
-    }
-
-    /// @notice Register this contract as the transfer callback on the mock precompile
-    function registerCallback(address assetsPrecompile) external {
-        IMockAssetsPrecompile(assetsPrecompile).setTransferCallback(
-            address(this)
-        );
     }
 
     function attack() external {
@@ -42,8 +23,8 @@ contract MockReentrancyAttack is ITransferCallback {
         attacking = false;
     }
 
-    /// @notice Called by MockAssetsPrecompile during transfer — re-enters core.deposit()
-    function onTransferCallback(address, address, uint256) external override {
+    /// @notice Called by MockppDOT.mintShares when minting to a contract — re-enters core.deposit()
+    function onMint() external {
         if (attacking) {
             attacking = false; // prevent infinite recursion
             core.deposit(1 ether, 0, block.timestamp + 1);

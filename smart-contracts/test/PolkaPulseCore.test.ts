@@ -261,10 +261,7 @@ describe("PolkaPulseCore", function () {
             // Core needs balance to fake the transfer
             await assetsPrecompile.write.setBalance([core.address, ONE_DOT * 10n]);
 
-            // Register the attacker as the transfer callback so it re-enters during deposit's transfer call
-            await attackerContract.write.registerCallback([assetsPrecompile.address]);
-
-            // OZ v4 string revert
+            // OZ v4 string revert — reentrancy triggers via MockppDOT.mintShares -> onMint() callback
             await viem.assertions.revertWith(
                 attackerContract.write.attack(),
                 "ReentrancyGuard: reentrant call",
