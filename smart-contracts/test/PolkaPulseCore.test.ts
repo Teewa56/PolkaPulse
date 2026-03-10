@@ -14,9 +14,11 @@ describe("PolkaPulseCore", function () {
         // Mock Assets Precompile at 0x0...806
         const ASSETS_PRECOMPILE = "0x0000000000000000000000000000000000000806";
         const mockAssets = await viem.deployContract("MockAssetsPrecompile");
-        const code = await network.provider.send("eth_getCode", [mockAssets.address]);
-        if (!code || code === "0x") throw new Error("Failed to get mock bytecode");
-        await network.provider.send("hardhat_setCode", [ASSETS_PRECOMPILE, code]);
+        const testClient = await viem.getTestClient();
+        const publicClient = await viem.getPublicClient();
+        const code = await publicClient.getCode({ address: mockAssets.address });
+        await testClient.setCode({ address: ASSETS_PRECOMPILE, bytecode: code });
+        await testClient.mine({ blocks: 100800 });
         const assetsPrecompile = await viem.getContractAt("MockAssetsPrecompile", ASSETS_PRECOMPILE);
 
         const ppdot = await viem.deployContract("MockppDOT");
