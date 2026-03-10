@@ -102,7 +102,7 @@ This uses `scripts/simulate-yield-loop.ts` to run:
 > Harvest → Optimizer → XCM dispatch (simulated) → ppDOT rebase
 
 #### 4.1. Start Chopsticks fork
-
+ 
 From your project root (or wherever `chopsticks.yml` lives):
 
 ```bash
