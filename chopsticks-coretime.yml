@@ -1,4 +1,4 @@
-endpoint: wss://paseo-coretime-rpc.polkadot.io
+endpoint: wss://paseo-coretime.dotters.network
 port: 8003
 mock-signature-host: true
 db: ./chopsticks-db/coretime.db
