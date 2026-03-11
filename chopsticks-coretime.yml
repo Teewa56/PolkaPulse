@@ -1,0 +1,4 @@
+endpoint: wss://paseo-coretime-rpc.polkadot.io
+port: 8003
+mock-signature-host: true
+db: ./chopsticks-db/coretime.db

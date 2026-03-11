@@ -1,0 +1,4 @@
+endpoint: wss://api.interlay.io/parachain
+port: 8002
+mock-signature-host: true
+db: ./chopsticks-db/interlay.db

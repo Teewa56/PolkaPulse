@@ -1,0 +1,4 @@
+endpoint: wss://rpc.hydradx.cloud
+port: 8001
+mock-signature-host: true
+db: ./chopsticks-db/hydradx.db

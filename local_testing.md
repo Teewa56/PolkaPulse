@@ -83,7 +83,7 @@ engine to fully start before retrying.
 
 ### 4.2. Build the Chopsticks image (one-time)
 
-From the project root (where `chopsticks.yml` lives):
+From the project root:
 
 ```bash
 cat > Dockerfile.chopsticks << 'EOF'
@@ -99,38 +99,93 @@ docker build -f Dockerfile.chopsticks -t chopsticks-local .
 
 This takes 2–3 minutes on the first run. You only need to do it once.
 
-### 4.3. Start the multi-chain fork
+### 4.3. Create per-chain config files
+
+> ⚠️ Chopsticks XCM mode does **not** accept a single unified config file.
+> It requires a separate `.yml` per chain, each passed with its own
+> `--parachain` flag. The `--config` flag only works for single-chain mode.
+
+From the project root, create the four config files:
 
 ```bash
-docker run --rm -it \
-  -v "$(pwd)/chopsticks.yml:/app/chopsticks.yml" \
-  -p 8000:8000 \
-  -p 8001:8001 \
-  -p 8002:8002 \
-  -p 8003:8003 \
-  chopsticks-local xcm --config /app/chopsticks.yml
+mkdir -p chopsticks-db
+
+cat > chopsticks-assethub.yml << 'EOF'
+endpoint: wss://paseo-asset-hub-rpc.polkadot.io
+port: 8000
+mock-signature-host: true
+db: ./chopsticks-db/assethub.db
+import-storage:
+  System.Account:
+    - - - "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+      - data:
+          free: "10000000000000000000000"
+    - - - "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
+      - data:
+          free: "10000000000000000000000"
+    - - - "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"
+      - data:
+          free: "10000000000000000000000"
+    - - - "0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc"
+      - data:
+          free: "10000000000000000000000"
+EOF
+
+cat > chopsticks-hydradx.yml << 'EOF'
+endpoint: wss://rpc.hydradx.cloud
+port: 8001
+mock-signature-host: true
+db: ./chopsticks-db/hydradx.db
+EOF
+
+cat > chopsticks-interlay.yml << 'EOF'
+endpoint: wss://api.interlay.io/parachain
+port: 8002
+mock-signature-host: true
+db: ./chopsticks-db/interlay.db
+EOF
+
+cat > chopsticks-coretime.yml << 'EOF'
+endpoint: wss://paseo-coretime-rpc.polkadot.io
+port: 8003
+mock-signature-host: true
+db: ./chopsticks-db/coretime.db
+EOF
 ```
 
-Or add it as an npm script in the root `package.json`:
+### 4.4. Add npm scripts to root `package.json`
 
 ```json
 "scripts": {
-  "fork": "docker run --rm -it -v \"%cd%/chopsticks.yml:/app/chopsticks.yml\" -p 8000:8000 -p 8001:8001 -p 8002:8002 -p 8003:8003 chopsticks-local xcm --config /app/chopsticks.yml"
+  "fork": "docker run --rm -it -v \"%cd%:/app\" -p 8000:8000 -p 8001:8001 -p 8002:8002 -p 8003:8003 chopsticks-local xcm --relaychain wss://rpc.ibp.network/paseo --parachain /app/chopsticks-assethub.yml --parachain /app/chopsticks-hydradx.yml --parachain /app/chopsticks-interlay.yml --parachain /app/chopsticks-coretime.yml",
+  "fork:assethub": "docker run --rm -it -v \"%cd%:/app\" -p 8000:8000 chopsticks-local --config /app/chopsticks-assethub.yml"
 }
 ```
 
-Then just run:
+### 4.5. Start the fork
+
+**Full XCM multi-chain fork** (all four chains, needed for cross-chain tests):
 ```bash
 npm run fork
 ```
 
+**Asset Hub only** (sufficient for unit tests and contract deployment):
+```bash
+npm run fork:assethub
+```
+
 Port mapping:
-| Port  | Chain           |
-|-------|-----------------|
-| 8000  | Asset Hub (primary) |
-| 8001  | HydraDX         |
-| 8002  | Interlay        |
-| 8003  | Coretime Chain  |
+
+| Port | Chain               |
+|------|---------------------|
+| 8000 | Asset Hub (primary) |
+| 8001 | HydraDX             |
+| 8002 | Interlay            |
+| 8003 | Coretime Chain      |
+
+> ℹ️ The large block of `@polkadot/util has multiple versions` warnings on
+> startup is harmless — it is a known peer dependency conflict inside
+> Chopsticks itself and does not affect functionality.
 
 Leave this terminal running. Use a second terminal for all subsequent steps.
 
