@@ -1,210 +1,53 @@
-### 1. Prerequisites
-
-**Install tools:**
-
-- **Node.js**: v18+  
-- **Package manager**: `npm` or `pnpm`  
-- **Rust toolchain**: `rustup` + `cargo`  
-- **Chopsticks**: for Polkadot/Asset Hub fork simulation  
-  ```bash
-  npm install -g @acala-network/chopsticks
-  ```
-- **Git** and a modern browser/Metamask (or any EVM wallet) for the frontend.
-
----
-
-### 2. Environment setup
-
-#### 2.1. Smart contracts (`smart-contracts/`)
-NB: If you encounter any errors during installation use --legacy-peer-deps flag
-1. Go to the contracts folder and install deps:
-
-   ```bash
-   cd smart-contracts
-   npm install
-   ```
-
-2. Create `.env` from the example:
-
-   ```bash
-   cp .env.example .env
-   ```
-
-3. Fill in at least:
-
-   - `PRIVATE_KEY=` – dev wallet key for deployments (funded in the local fork).
-   - `ASSET_HUB_RPC=` – RPC URL of your local Chopsticks fork, e.g. `http://127.0.0.1:8545`.
-   - `HYDRAX_RPC=`, `INTERLAY_RPC=` – if you have local endpoints or want to mock; for basic unit tests these may be unused.
-   - `PVM_MODULE_ADDRESS=` – address of the PVM module precompile (can be a placeholder for pure Hardhat tests; needed when you actually wire PVM calls).
-
-#### 2.2. Frontend (`frontend/`)
-
-1. Install deps:
-
-   ```bash
-   cd frontend
-   npm install
-   ```
-
-2. Create `.env.local` from the example:
-
-   ```bash
-   cp .env.example .env.local
-   ```
-
-3. Fill in:
-
-   - `NEXT_PUBLIC_CHAIN_ID=` – chain ID you use in Hardhat/Chopsticks (e.g. `31337` or the custom one).
-   - `NEXT_PUBLIC_ASSET_HUB_RPC=` – same RPC as in `ASSET_HUB_RPC`.
-   - Contract addresses from your deployment:
-     - `NEXT_PUBLIC_POLKAPULSE_CORE_ADDRESS=`
-     - `NEXT_PUBLIC_PPDOT_TOKEN_ADDRESS=`
-     - `NEXT_PUBLIC_PVM_MODULE_ADDRESS=`
-     - `NEXT_PUBLIC_CORETIME_ARBITRAGE_ADDRESS=`
-     - `NEXT_PUBLIC_REWARD_MONITOR_ADDRESS=`
-   - WalletConnect + parachain RPCs as needed:
-     - `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=`
-     - `NEXT_PUBLIC_HYDRAX_RPC=`
-     - `NEXT_PUBLIC_INTERLAY_RPC=`
-
----
-
-### 3. Run test suites layer by layer
-
-#### 3.1. Rust PVM modules
-
-From `pvm-modules/`:
-
-```bash
-cd pvm-modules
-cargo test
-```
-
-This exercises `math_lib.rs` and `yield_optimizer.rs` logic: compound yield math, annualization, fee-adjusted yields, allocation splits, etc.
-
-#### 3.2. Smart-contract unit tests (Hardhat)
-
-From `smart-contracts/`:
-
-```bash
-cd smart-contracts
-npx hardhat test
-```
-
-This should run Solidity tests and any Node/viem tests defined in `test/` (e.g. `PolkaPulseCore.test.ts`, `CoretimeArbitrage.test.ts`, fuzz tests) on the in-memory Hardhat network.
-
----
-
-### 4. Simulate the full yield loop with Chopsticks
-
-This uses `scripts/simulate-yield-loop.ts` to run:
-
-> Harvest → Optimizer → XCM dispatch (simulated) → ppDOT rebase
-
-#### 4.1. Start Chopsticks fork
- 
-From your project root (or wherever `chopsticks.yml` lives):
-for this you might need to downgrade your node version to 20
-```bash
-nvm install 20
-nvm use 20
-```
-
-```bash
-npx @acala-network/chopsticks xcm --config chopsticks.yml
-```
-
-- Ensure it’s listening on `http://localhost:8545` (matches `localhost` network in `hardhat.config.ts`).
-- `ASSET_HUB_RPC` in `smart-contracts/.env` should point to this URL.
-
-#### 4.2. Deploy contracts to the fork
-
-From `smart-contracts/`:
-
-```bash
-cd smart-contracts
-npx hardhat ignition deploy ignition/modules/PolkaPulse.ts --network localhost
-```
-
-- After this, note the deployed **PolkaPulseCore proxy address**.
-- Put that in your `smart-contracts/.env` as:
-
-  ```env
-  POLKAPULSE_CORE_ADDRESS=0x...   # from deploy logs
-  ```
-
-(If `POLKAPULSE_CORE_ADDRESS` is not in `.env.example`, just add it; `simulate-yield-loop.ts` reads it via `process.env.POLKAPULSE_CORE_ADDRESS`.)
-
-#### 4.3. Run the yield loop simulation script
-
-Still in `smart-contracts/`:
-
-```bash
-npx hardhat run scripts/simulate-yield-loop.ts --network localhost
-```
-
-This script will:
-
-- Check `harvestReady()`; if not, it uses `evm_increaseTime` + `evm_mine` to fast-forward.
-- Log **before/after**:
-  - `totalDOT`
-  - `exchangeRate`
-- Execute `executeYieldLoop()` and parse:
-  - `YieldLoopExecuted` event (HydraDX amount, Interlay amount, projected APY, expected yield).
-  - `Rebased` event (old vs new rate, yield in DOT).
-- Assert invariants:
-  - `exchangeRate` non-decreasing,
-  - `totalDOT` non-decreasing.
-
-If it finishes with the ✅ messages, the core protocol loop behaves correctly on the fork.
-
----
-
-### 5. Run the frontend against your local deployment
-
-1. Make sure Chopsticks + contracts are still running and reachable.
-
-2. In `frontend/`:
-
-   ```bash
-   cd frontend
-   npm run dev
-   ```
-
-3. Open `http://localhost:3000`:
-
-   - Connect your wallet (configured to the same chain ID as your local fork).
-   - Use the **dashboard** page to:
-     - Deposit some DOT (whatever is available from your dev wallet in the fork),
-     - Check `ppDOT` balance, yield stats, allocation chart.
-   - Use the **vault** and **coretime** pages to confirm data is loading correctly via the hooks (`useppDOTBalance`, `useYieldStats`, `useCoretimeData`, etc.), assuming your RPC + addresses are wired.
-
----
-
-### 6. Suggested `LOCAL_TESTING.md` content
-
-You can create `LOCAL_TESTING.md` in the root with something like:
-
-```markdown
 # Local Testing Guide — PolkaPulse
 
 ## 1. Prerequisites
 
-- Node.js v18+
-- npm or pnpm
-- Rust toolchain (`rustup`, `cargo`)
-- Chopsticks (`npm install -g @acala-network/chopsticks`)
-- Git, browser + EVM wallet
+- **Node.js v20** (required — v22 has ESM/CJS conflicts with Chopsticks)
+- **npm** or **pnpm**
+- **Rust toolchain** (`rustup`, `cargo`)
+- **Docker Desktop** (required for Chopsticks — see Section 4)
+- **Git** and a browser EVM wallet (MetaMask, etc.)
+
+> ⚠️ Do **not** use Node.js v22. Use nvm to pin v20:
+> ```bash
+> nvm install 20
+> nvm use 20
+> node --version  # should print v20.x.x
+> ```
+
+---
 
 ## 2. Smart Contracts
 
 ```bash
 cd smart-contracts
-npm install
+npm install --legacy-peer-deps
 cp .env.example .env
-# Fill in PRIVATE_KEY, ASSET_HUB_RPC, etc.
+```
+
+Fill in `.env`:
+
+```env
+PRIVATE_KEY=           # dev wallet key (funded in local fork)
+ASSET_HUB_RPC=         # http://127.0.0.1:8000 (Chopsticks Asset Hub port)
+HYDRAX_RPC=            # http://127.0.0.1:8001 (optional for unit tests)
+INTERLAY_RPC=          # http://127.0.0.1:8002 (optional for unit tests)
+PVM_MODULE_ADDRESS=    # placeholder OK for pure Hardhat tests
+POLKAPULSE_CORE_ADDRESS= # fill after deployment in step 5
+```
+
+Run the test suite (71 tests, all passing):
+
+```bash
 npx hardhat test
 ```
+
+Expected output:
+```
+71 passing (12 solidity, 59 nodejs)
+```
+
+---
 
 ## 3. PVM Modules (Rust)
 
@@ -213,28 +56,157 @@ cd pvm-modules
 cargo test
 ```
 
-## 4. Chopsticks Yield Loop Simulation
+This exercises `math_lib.rs` and `yield_optimizer.rs`: compound yield math,
+annualization, fee-adjusted yields, and allocation splits.
+
+---
+
+## 4. Chopsticks Fork (via Docker)
+
+Chopsticks must be run via Docker on Windows. The global npm install
+(`npm install -g @acala-network/chopsticks`) has known ESM/CJS breakage
+on both Node v20 and v22 on Windows.
+
+### 4.1. Install Docker Desktop
+
+Download from https://www.docker.com/products/docker-desktop/ and install.
+After installation, open Docker Desktop and wait for the whale icon in the
+system tray to show "Engine running".
+
+Verify:
+```bash
+docker info   # should print system info, not an error
+```
+
+If you get a pipe error, run Docker Desktop as Administrator and wait for the
+engine to fully start before retrying.
+
+### 4.2. Build the Chopsticks image (one-time)
+
+From the project root (where `chopsticks.yml` lives):
 
 ```bash
-# In project root (with chopsticks.yml)
-npx @acala-network/chopsticks --config chopsticks.yml
+cat > Dockerfile.chopsticks << 'EOF'
+FROM node:20-alpine
+RUN apk add --no-cache python3 make g++ \
+    && npm install -g @acala-network/chopsticks@0.14.2
+WORKDIR /app
+ENTRYPOINT ["chopsticks"]
+EOF
+
+docker build -f Dockerfile.chopsticks -t chopsticks-local .
 ```
+
+This takes 2–3 minutes on the first run. You only need to do it once.
+
+### 4.3. Start the multi-chain fork
+
+```bash
+docker run --rm -it \
+  -v "$(pwd)/chopsticks.yml:/app/chopsticks.yml" \
+  -p 8000:8000 \
+  -p 8001:8001 \
+  -p 8002:8002 \
+  -p 8003:8003 \
+  chopsticks-local xcm --config /app/chopsticks.yml
+```
+
+Or add it as an npm script in the root `package.json`:
+
+```json
+"scripts": {
+  "fork": "docker run --rm -it -v \"%cd%/chopsticks.yml:/app/chopsticks.yml\" -p 8000:8000 -p 8001:8001 -p 8002:8002 -p 8003:8003 chopsticks-local xcm --config /app/chopsticks.yml"
+}
+```
+
+Then just run:
+```bash
+npm run fork
+```
+
+Port mapping:
+| Port  | Chain           |
+|-------|-----------------|
+| 8000  | Asset Hub (primary) |
+| 8001  | HydraDX         |
+| 8002  | Interlay        |
+| 8003  | Coretime Chain  |
+
+Leave this terminal running. Use a second terminal for all subsequent steps.
+
+---
+
+## 5. Deploy Contracts to the Fork
 
 ```bash
 cd smart-contracts
 npx hardhat ignition deploy ignition/modules/PolkaPulse.ts --network localhost
-# Set POLKAPULSE_CORE_ADDRESS in .env
+```
+
+Copy the deployed PolkaPulseCore proxy address from the logs and add it to `.env`:
+
+```env
+POLKAPULSE_CORE_ADDRESS=0x...
+```
+
+---
+
+## 6. Run the Yield Loop Simulation
+
+```bash
+cd smart-contracts
 npx hardhat run scripts/simulate-yield-loop.ts --network localhost
 ```
 
-## 5. Frontend
+The script will:
+
+1. Check `harvestReady()` and fast-forward time via `evm_increaseTime` + `evm_mine` if needed.
+2. Log before/after state: `totalDOT` and `exchangeRate`.
+3. Execute `executeYieldLoop()` and parse emitted events:
+   - `YieldLoopExecuted` — HydraDX allocation, Interlay allocation, projected APY, expected yield.
+   - `Rebased` — old rate, new rate, yield in DOT.
+4. Assert invariants: `exchangeRate` non-decreasing, `totalDOT` non-decreasing.
+
+A successful run ends with ✅ messages for each invariant.
+
+---
+
+## 7. Run the Frontend
 
 ```bash
 cd frontend
 npm install
 cp .env.example .env.local
-# Fill NEXT_PUBLIC_* values (RPC, chain ID, contract addresses)
+```
+
+Fill in `.env.local`:
+
+```env
+NEXT_PUBLIC_CHAIN_ID=420420417          # Paseo Asset Hub EVM chain ID
+NEXT_PUBLIC_ASSET_HUB_RPC=http://127.0.0.1:8000
+
+# Contract addresses from step 5
+NEXT_PUBLIC_POLKAPULSE_CORE_ADDRESS=
+NEXT_PUBLIC_PPDOT_TOKEN_ADDRESS=
+NEXT_PUBLIC_PVM_MODULE_ADDRESS=
+NEXT_PUBLIC_CORETIME_ARBITRAGE_ADDRESS=
+NEXT_PUBLIC_REWARD_MONITOR_ADDRESS=
+
+# Optional
+NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=
+NEXT_PUBLIC_HYDRAX_RPC=http://127.0.0.1:8001
+NEXT_PUBLIC_INTERLAY_RPC=http://127.0.0.1:8002
+```
+
+```bash
 npm run dev
-# Open http://localhost:3000
 ```
-```
+
+Open `http://localhost:3000`. Connect your wallet to chain ID `420420417`
+pointing at `http://127.0.0.1:8000`. You can then:
+
+- Deposit DOT and check your `ppDOT` balance.
+- View yield stats, allocation chart, and Coretime arbitrage data via the
+  `useppDOTBalance`, `useYieldStats`, and `useCoretimeData` hooks.
+
+---
