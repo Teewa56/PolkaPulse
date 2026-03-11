@@ -1,4 +1,4 @@
-endpoint: wss://testnet-passet-hub.polkadot.io
+endpoint: wss://passet-hub-paseo.ibp.network
 port: 8000
 mock-signature-host: true
 db: ./chopsticks-db/assethub.db

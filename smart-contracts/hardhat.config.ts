@@ -33,7 +33,7 @@ export default defineConfig({
       type: "http",
       chainType: "l1",
       url: `${process.env.ASSET_HUB_RPC}`,
-      chainId: 420420417,
+      chainId: 420420422,
       accounts: [`${process.env.PRIVATE_KEY}`],
     },
   },
