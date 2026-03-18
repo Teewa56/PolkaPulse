@@ -9,7 +9,7 @@ import {
   PPDOT_ABI,
   CORETIME_ARBITRAGE_ABI,
   REWARD_MONITOR_ABI,
-} from "@/types/contracts";
+} from "@/types/contract";
 
 export const polkaPulseCore = {
   address: POLKAPULSE_CORE_ADDRESS,
